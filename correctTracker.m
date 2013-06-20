@@ -3,11 +3,11 @@ function tracker=correctTracker(tracker,I_vf,idx)
 
 %% updata tracker states
 tracker.output=tracker.state_dt(idx,:);
-temp = repmat(tracker.output,[round(size(tracker.state,1)/2),1]);
-rad = (rand(size(temp,1),1).^2)*(tracker.radius*2*max(tracker.state(1,3:4)));
+temp = repmatls(tracker.output,[round(size(tracker.state,1)/2),1]);
+rad = (rand(size(temp,1),1).^1)*(1*max(tracker.state(1,3:4)));
 angle = rand(size(temp,1),1)*2*pi;
 temp(:,1:2) = temp(:,1:2) + [cos(angle).*rad,sin(angle).*rad];
-tracker.state(randi([1,size(tracker.state,1)],size(temp,1),1),:) = temp;
+tracker.state(randsample(size(tracker.state,1),size(temp,1)),:) = temp;
 temp = tracker.state;
 
 %% update training samples

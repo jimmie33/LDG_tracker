@@ -7,28 +7,12 @@ function hist_mtx = LSH(img, alpha, nbin)
     color_max = 256;
     color_range = 0:color_max/nbin:color_max;
     
-    img_rep = repmat(img,[1,1,nbin]);
-    l = repmat(reshape(color_range(1:end-1),1,1,[]),[size(img,1),size(img,2)]);
-    u = repmat(reshape(color_range(2:end),1,1,[]),[size(img,1),size(img,2)]);
+    img_rep = repmatls(img,[1,1,nbin]);
+    l = repmatls(reshape(color_range(1:end-1),1,1,[]),[size(img,1),size(img,2)]);
+    u = repmatls(reshape(color_range(2:end),1,1,[]),[size(img,1),size(img,2)]);
     q_mtx = double((img_rep >= l) & (img_rep<u));
 
-%     % compute Q
-%     q_mtx = zeros(size(img, 1), size(img, 2), nbin);
-%     for i=1:nbin
-%         tmp_img = img;
-% 
-%         mask_l = find(tmp_img >= color_range(i));
-%         mask_u = find(tmp_img < color_range(i+1));
-%         mask = intersect(mask_l, mask_u);
-% 
-%         tmp_img(:) = 0;
-%         tmp_img(mask) = 1;
-%         q_mtx(:, :, i) = tmp_img;
-%     end
-
-    % compute H and normalization factor
-%     hist_mtx = q_mtx;
-    
+    % 95% accuracy kernel
     kernel = getExpKernel1D(alpha,2*round( log(0.5*0.025*(1-alpha))/log(alpha)-1 )+1);
     hist_mtx = imfilter(q_mtx,kernel,'same','replicate');
     hist_mtx = imfilter(hist_mtx,kernel','same','replicate');

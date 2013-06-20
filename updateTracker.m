@@ -2,17 +2,18 @@ function tracker=updateTracker(tracker,I_vf)
 
 nel=size(tracker.state,1);
 
-tracker.patterns_ft=zeros(nel,size(I_vf,3)); % training sample for feature selection
+% tracker.patterns_ft=zeros(nel,size(I_vf,3)); % training sample for feature selection
 % tracker.patterns_sp=zeros(nel,tracker.rn*tracker.cn);
 tracker.patterns_dt=zeros(nel,size(tracker.template,1)*size(tracker.template,2)*size(I_vf,3));
 
 weight=zeros(1,nel);
 valid_sample = boolean(zeros(1,nel));
 
-[ft_min, ~] = min(tracker.ft_w); % weights should be negative
-ft_w_exp = kron(tracker.ft_w==ft_min,ones(1,size(I_vf,3)/tracker.feature_num));
-tracker.feat_w = ft_w_exp;
+% [ft_min, ~] = min(tracker.ft_w); % weights should be negative
+% ft_w_exp = kron(tracker.ft_w==ft_min,ones(1,size(I_vf,3)/tracker.feature_num));
+% tracker.feat_w = ft_w_exp;
 med_score = 10*ones(size(tracker.state,1),1);
+
 for i=round(1:nel)
    rect=tracker.state(i,:);
    upleft = round([rect(1)-tracker.roi(1)+1,rect(2)-tracker.roi(2)+1]);
@@ -22,15 +23,15 @@ for i=round(1:nel)
        %r1=cov(sub_win);
        %weight(i)=getLike(r1,tracker.template);
        %%
-       diff = abs(sub_win - tracker.template);
+       diff = (sub_win - tracker.template);
       
        tracker.patterns_dt(i,:) = sub_win(:)';
        valid_sample(i) = 1;%valid sample
 
-       wt_diff = diff(:,:,ft_w_exp>0);%diff.*ft_w_exp;
-       wt_diff = mean(wt_diff,3);
+%        wt_diff = diff(:,:,ft_w_exp>0);%diff.*ft_w_exp;
+%        wt_diff = mean(wt_diff,3);
        
-       med_score(i) = median(wt_diff(:));
+       med_score(i) = norm(diff(:))/sqrt(size(diff(:),1));
        weight(i) = exp(-100*med_score(i));%exp(-10*avg_diff);
    end
 end

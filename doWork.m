@@ -2,8 +2,8 @@ clc
 clear
 addpath(genpath('.'));
 
-input='..\data\skiing\';
-D = dir(fullfile(input,'*.jpg'));
+input='..\data\ASL_small_color\';
+D = dir(fullfile(input,'*.png'));
 file_list={D.name};
 
 %%for LSH
@@ -17,7 +17,7 @@ image_scale = 1.0;
 max_train_sz = 200;
 pixel_step = 2;
 use_color = true;
-search_roi = 3; % the ratio of the search radius to the longest edge of bbox
+search_roi = 4; % the ratio of the search radius to the longest edge of bbox
 init_step = 20;
 start_frame = 1;
 
@@ -54,6 +54,8 @@ config.IIF_k = 0.005;
 config.fd = fd;
 config.thr =thr;
 config.pixel_step = pixel_step;
+config.padding = 20;%for object out of border
+config.use_raw_feat = false;%do not explode the feature
 
 
 
@@ -68,13 +70,16 @@ figure(3); set(3,'KeyPressFcn', @handleKey);
 finish = 0; 
 
 for frame_id=start_frame:numel(file_list)
-    
+    disp('**********************')
     if finish == 1
         break;
     end
     
     %% read a frame
-    I_orig=imread(fullfile(input,file_list{frame_id}));
+    I_orig=imread(fullfile(input,file_list{frame_id})); 
+    if config.padding >0
+        I_orig = padarray(I_orig,[config.padding, config.padding],'replicate');
+    end
     [I I_orig]= getFrame2Compute(I_orig);
     
     %% intialize a bbox
@@ -83,7 +88,7 @@ for frame_id=start_frame:numel(file_list)
         imshow(I);
         % crop to get the initial window
         [InitPatch rect]=imcrop(I_orig); rect = round(rect);%
-%         rect = [171    69    53    60];
+%         rect = [170    66    56    65];
         tracker.output = rect;
     end
     
@@ -94,10 +99,10 @@ for frame_id=start_frame:numel(file_list)
     %% crop frame
     I_crop = I(tracker.roi(2):tracker.roi(4),tracker.roi(1):tracker.roi(3),:);
     %% compute feature images
-%     tic
+tic
     alpha = exp(-sqrt(2)/(config.hist_decay*min(tracker.output(3:4))));
     [BC F] = getFeatureRep(I_crop,alpha,config.hist_nbin,config.IIF_k,config.pixel_step);
-%     toc
+toc
    
    
    %% tracking part
@@ -107,9 +112,9 @@ for frame_id=start_frame:numel(file_list)
        train_mask = (tracker.costs<0.1) | (tracker.costs>0.5);
        label = tracker.costs(train_mask,1)<0.1;
 %        ft_w = ones(1,size(tracker.template,1)*size(tracker.template,2)*size(tracker.template,3));
-%        tic
+tic
        svm_tracker = initSvmTracker(svm_tracker,tracker.patterns_dt(train_mask,:), label);
-%        toc
+toc
        fig=figure(1);
        imshow(I_orig);
        rectangle('position',tracker.output,'LineWidth',2,'EdgeColor','b')
@@ -123,13 +128,17 @@ for frame_id=start_frame:numel(file_list)
        
        %correct tracker and label
        if (~initialized)
+tic
            tracker=updateTracker(tracker,BC);
+toc
            rectangle('position',tracker.output,'LineWidth',2,'EdgeColor','b')
-           if frame_id >3 & tracker.med_score>0.05
+           if frame_id >3 & tracker.med_score>0.1
                initialized = true;
            end
        else %adhoc step for initialization finished
+tic
            tracker=updateTracker(tracker,BC);
+toc
            svm_result_idx = svmTrackerDo(svm_tracker,tracker.patterns_dt);
            rectangle('position',tracker.output,'LineWidth',2,'EdgeColor','b')
            rectangle('position',tracker.state_dt(svm_result_idx,:),'LineWidth',2,'EdgeColor','g')
@@ -152,7 +161,9 @@ for frame_id=start_frame:numel(file_list)
 %        [i1,i2,i3] = ndgrid(1:size(tracker.template,1),1:size(tracker.template,2),find(tracker.feat_w>0));
 %        ft_w = zeros(1,size(tracker.template,1)*size(tracker.template,2)*size(tracker.template,3));
 %        ft_w(:,sub2ind(size(tracker.template),i1(:),i2(:),i3(:))) = 1;
+tic
        svm_tracker = updateSvmTracker (svm_tracker,tracker.patterns_dt(train_mask,:),label);
+toc
    end
 %    toc
    %% visulize results
@@ -193,7 +204,7 @@ for frame_id=start_frame:numel(file_list)
 %    patterns{mod(sample_count,max_train_sz)+1} = tracker.patterns_ft*kron(eye(tracker.feature_num),ones(fd,1)/fd);%[F1,F2,F3...]3d / 5d feature
 %    costs{mod(sample_count,max_train_sz)+1} = tracker.costs;
    sample_count = sample_count+1;
-   tracker.ft_w = -1*ones(1,tracker.feature_num);%svm_learn(patterns,costs,tracker.ft_w')';
+%    tracker.ft_w = -1*ones(1,tracker.feature_num);%svm_learn(patterns,costs,tracker.ft_w')';
    if sample_count > visualize_medscore_size
        medscore(1:end-1) = medscore(2:end);
        medscore(end) = tracker.med_score;
