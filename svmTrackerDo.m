@@ -6,5 +6,5 @@ switch tracker.solver
     case 1
         [~,idx] = max(sample*tracker.clsf.w');
     case 2
-        [~,idx] = min(sample*tracker.clsf.w');
+        [~,idx] = max(sample*tracker.clsf.w');
 end

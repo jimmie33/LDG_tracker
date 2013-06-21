@@ -15,9 +15,9 @@ k = 0.005;              %parameter of illumination invariant features
 record_vid = false;
 image_scale = 1.0;
 max_train_sz = 200;
-pixel_step = 2;
+pixel_step = 4;
 use_color = true;
-search_roi = 4; % the ratio of the search radius to the longest edge of bbox
+search_roi = 3; % the ratio of the search radius to the longest edge of bbox
 init_step = 20;
 start_frame = 1;
 
@@ -55,7 +55,7 @@ config.fd = fd;
 config.thr =thr;
 config.pixel_step = pixel_step;
 config.padding = 20;%for object out of border
-config.use_raw_feat = false;%do not explode the feature
+config.use_raw_feat = true;%do not explode the feature
 
 
 
