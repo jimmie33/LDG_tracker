@@ -58,4 +58,31 @@ switch tracker.solver
             tracker.sv_label = label(Idx(1:tracker.sv_size),:);
         end
         tracker.clsf.w = tracker.clsf.sv_coef'*tracker.clsf.SVs(:,1:end);
+        
+    case 4 % psvm
+        [tracker.clsf.w, tracker.clsf.gamma, y] = psvm_my(sample,2*(label-0.5),0,-1,0,1);
+
+        mask = abs(y) <0.05 | abs(y)>0.1;
+        tracker.sv_full = sample(mask,:);
+        tracker.sv_label = label(mask,:);
+        
+        if config.verbose
+            fprintf('psvm: feat_d: %d; train_num: %d; svs: %d \n',size(sample,2),size(sample,1),size(tracker.sv_full,1)); 
+        end
+        
+    case 5 % tvm
+        tracker.clsf = svmtrain( sample, label,'boxconstraint',tracker.C,'autoscale','false');
+        tracker.clsf.w = tracker.clsf.Alpha'*tracker.clsf.SupportVectors;
+        tracker.sv_label = label(tracker.clsf.SupportVectorIndices,:);
+        tracker.sv_full = sample(tracker.clsf.SupportVectorIndices,:);
+        
+        tracker.pos_sv = tracker.sv_full(tracker.sv_label>0.5,:);
+        tracker.pos_w = ones(size(tracker.pos_sv,1),1);
+        tracker.neg_sv = tracker.sv_full(tracker.sv_label<0.5,:);
+        tracker.neg_w = ones(size(tracker.neg_sv,1),1);
+        
+        % calculate distance matrix
+        tracker.pos_dis = squareform(pdist(tracker.pos_sv));
+        tracker.neg_dis = squareform(pdist(tracker.neg_sv)); 
+        
 end

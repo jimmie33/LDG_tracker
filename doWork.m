@@ -2,8 +2,8 @@ clc
 clear
 addpath(genpath('.'));
 
-input='..\data\ASL_small_color\';
-D = dir(fullfile(input,'*.png'));
+input='..\data\lemming\';
+D = dir(fullfile(input,'*.jpg'));
 file_list={D.name};
 
 %%for LSH
@@ -13,11 +13,11 @@ k = 0.005;              %parameter of illumination invariant features
 
 %% control parameter
 record_vid = false;
-image_scale = 1.0;
+image_scale = 0.7;
 max_train_sz = 200;
 pixel_step = 4;
 use_color = true;
-search_roi = 3; % the ratio of the search radius to the longest edge of bbox
+search_roi = 2.5; % the ratio of the search radius to the longest edge of bbox
 init_step = 20;
 start_frame = 1;
 
@@ -31,6 +31,7 @@ initialized = false;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
+global tracker;
 
 tracker=particleTracker();
 svm_tracker = svmTracker();
@@ -108,7 +109,7 @@ toc
    %% tracking part
 %    tic
    if frame_id==start_frame
-       tracker=initTracker(tracker,rect,BC,pixel_step,use_color);
+       initTracker(rect,BC,pixel_step,use_color);
        train_mask = (tracker.costs<0.1) | (tracker.costs>0.5);
        label = tracker.costs(train_mask,1)<0.1;
 %        ft_w = ones(1,size(tracker.template,1)*size(tracker.template,2)*size(tracker.template,3));
@@ -129,15 +130,15 @@ toc
        %correct tracker and label
        if (~initialized)
 tic
-           tracker=updateTracker(tracker,BC);
+           updateTracker(BC);
 toc
            rectangle('position',tracker.output,'LineWidth',2,'EdgeColor','b')
-           if frame_id >3 & tracker.med_score>0.1
+           if frame_id >1 & tracker.med_score>0.0
                initialized = true;
            end
        else %adhoc step for initialization finished
 tic
-           tracker=updateTracker(tracker,BC);
+           updateTracker(BC);
 toc
            svm_result_idx = svmTrackerDo(svm_tracker,tracker.patterns_dt);
            rectangle('position',tracker.output,'LineWidth',2,'EdgeColor','b')
@@ -223,6 +224,23 @@ toc
    imagesc(sum(svm_w,3));
    subplot(2,3,4:6)
    plot(sum(reshape(svm_w,size(tracker.template,1)*size(tracker.template,2),[]),1),'go')
+   
+%    if svm_tracker.solver == 5
+%        fig = figure(5);
+%        clf(fig);
+%        sv_num = size(svm_tracker.pos_sv,1);
+%        for i = 1:sv_num
+%            sv = reshape(svm_tracker.pos_sv(i,:),size(tracker.template,1),...
+%                size(tracker.template,2),[]);
+%            sv = sv(:,:,3);
+%            subplot(1,sv_num,i)
+%            imshow(sv);
+%            text(0,0,num2str(svm_tracker.pos_w(i)));
+%        end
+% %        pause
+%    end
+
+
 %    pause
    
 %    plot(-tracker.ft_w,'o');

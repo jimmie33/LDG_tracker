@@ -1,4 +1,5 @@
-function tracker=updateTracker(tracker,I_vf)
+function updateTracker(I_vf)
+global tracker;
 
 nel=size(tracker.state,1);
 
