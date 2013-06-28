@@ -73,6 +73,8 @@ switch tracker.solver
     case 5 % tvm
         tracker.clsf = svmtrain( sample, label,'boxconstraint',tracker.C,'autoscale','false');
         tracker.clsf.w = tracker.clsf.Alpha'*tracker.clsf.SupportVectors;
+        tracker.w = tracker.clsf.w;
+        tracker.Bias = tracker.clsf.Bias;
         tracker.sv_label = label(tracker.clsf.SupportVectorIndices,:);
         tracker.sv_full = sample(tracker.clsf.SupportVectorIndices,:);
         
@@ -82,7 +84,19 @@ switch tracker.solver
         tracker.neg_w = ones(size(tracker.neg_sv,1),1);
         
         % calculate distance matrix
-        tracker.pos_dis = squareform(pdist(tracker.pos_sv));
+        if size(tracker.pos_sv,1)>1
+            tracker.pos_dis = squareform(pdist(tracker.pos_sv));
+        else
+            tracker.pos_dis = inf;
+        end
         tracker.neg_dis = squareform(pdist(tracker.neg_sv)); 
+        
+        % structral information
+%         tracker.pos_corr = zeros(size(tracker.pos_sv,2),size(tracker.pos_sv,2),...
+%             size(tracker.pos_sv,1));
+%         for k = 1:size(tracker.pos_sv,1)
+%             tracker.pos_corr(:,:,k) = tracker.pos_sv(k,:)'*tracker.pos_sv(k,:);
+%         end
+%         tracker.pos_ms = tracker.pos_corr;
         
 end

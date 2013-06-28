@@ -63,7 +63,7 @@ fZ = ZT .* Z.^(1/3) + (~ZT) .* (7.787 .* Z + 16/116);
 
 L = (reshape(YT .* (116 * Y3 - 16.0) + (~YT) .* (903.3 * Y), M, N))/100;
 a = (reshape(500 * (fX - fY), M, N)*3+110)/220;
-b = (reshape(200 * (fY - fZ), M, N)*3+110)/200;
+b = (reshape(200 * (fY - fZ), M, N)*3+110)/220;
 
 if nargout < 2
   L = cat(3,L,a,b);

@@ -111,13 +111,14 @@ switch tracker.solver
             fprintf('psvm: feat_d: %d; train_num: %d; svs: %d \n',size(sample,2),size(sample,1),size(tracker.sv_full,1)); 
         end
     case 5 % tvm
-        figure(4)
-        bar([size(tracker.pos_sv,1),size(tracker.neg_sv,1)]);
+%         figure(4)
+%         bar([size(tracker.pos_sv,1),size(tracker.neg_sv,1)]);
         
         score = -(sample*tracker.clsf.w'+tracker.clsf.Bias);
         pos_score = score(label>0.5);
         neg_score = score(label<0.5);
-        mask = rand(size(label))>0.5 & (score > max(neg_score) | score<min(pos_score));
+        mask = (rand(size(label))>0.5); %& ...
+            %(score > max(neg_score) | score<min(pos_score));
         sample = sample(mask,:);
         label = label(mask,:);
         num_newsample = size(sample,1);
@@ -136,6 +137,12 @@ switch tracker.solver
         
         C = tracker.C*sample_w/sum(sample_w);
         
+        % whitening ********************
+%         tmp_msk = tracker.pos_w > 1;
+%         sigma = sum(tracker.pos_corr(:,:,tmp_msk),3)-sum(tracker.pos_ms(:,:,tmp_msk),3);
+%         wht = speye(size(tracker.pos_sv,2))+tracker.lambda*sigma;
+%         tracker.whitening = sqrtm(inv(wht));
+        
         if config.verbose
             tracker.clsf = svmtrain_my( sample, label, 'boxconstraint',C,...
                 'autoscale','false','options',statset('Display','final','MaxIter',5000));
@@ -144,8 +151,15 @@ switch tracker.solver
             tracker.clsf = svmtrain_my( sample, label, 'boxconstraint',C,...
                 'autoscale','false','options',statset('MaxIter',5000));
         end
-
-        tracker.clsf.w = tracker.clsf.Alpha'*tracker.clsf.SupportVectors;
+        %**************************
+        if ~isempty(tracker.w)
+            tracker.w = 0.8*tracker.w + 0.2*tracker.clsf.Alpha'*tracker.clsf.SupportVectors;
+            tracker.Bias = 0.8*tracker.Bias + 0.2*tracker.clsf.Bias;
+        else
+            tracker.w = tracker.clsf.Alpha'*tracker.clsf.SupportVectors;
+            tracker.Bias = tracker.clsf.Bias;
+        end
+        tracker.clsf.w = tracker.w;
         % get the idx of new svs
         sv_idx = tracker.clsf.SupportVectorIndices;
         sv_old_sz = size(tracker.pos_sv,1)+size(tracker.neg_sv,1);
@@ -167,6 +181,15 @@ switch tracker.solver
             tracker.pos_dis = [tracker.pos_dis, pos_dis_cro; pos_dis_cro', pos_dis_new];
             tracker.pos_sv = [tracker.pos_sv;pos_sv_new];
             tracker.pos_w = [tracker.pos_w;ones(num_sv_pos_new,1)];
+            
+            % update structrual information ********************
+%             pos_corr = zeros(size(tracker.pos_sv,2),size(tracker.pos_sv,2),...
+%                 num_sv_pos_new);
+%             for k = 1:num_sv_pos_new
+%                 pos_corr(:,:,k) = pos_sv_new(k,:)'*pos_sv_new(k,:);
+%             end
+%             tracker.pos_corr = cat(3,tracker.pos_corr,pos_corr);
+%             tracker.pos_ms = cat(3,tracker.pos_ms,pos_corr);
         end
         
         % update neg_dis, neg_w and neg_sv
@@ -189,28 +212,34 @@ switch tracker.solver
         % shrink svs
         % check if to remove
         if size(tracker.pos_sv,1)+size(tracker.neg_sv,1)>tracker.B
-            pos_score_sv = -(tracker.pos_sv*tracker.clsf.w'+tracker.clsf.Bias);
-            neg_score_sv = -(tracker.neg_sv*tracker.clsf.w'+tracker.clsf.Bias);
+            pos_score_sv = -(tracker.pos_sv*tracker.w'+tracker.Bias);
+            neg_score_sv = -(tracker.neg_sv*tracker.w'+tracker.Bias);
             m_pos = abs(pos_score_sv) < tracker.m2;
             m_neg = abs(neg_score_sv) < tracker.m2;
             
             if config.verbose
                 fprintf('remove svs: pos %d, neg %d \n',sum(~m_pos),sum(~m_neg));
             end
-            
-            tracker.pos_sv = tracker.pos_sv(m_pos,:);
-            tracker.pos_w = tracker.pos_w(m_pos,:);
-            tracker.pos_dis = tracker.pos_dis(m_pos,m_pos);
-            
-            tracker.neg_sv = tracker.neg_sv(m_neg,:);
-            tracker.neg_w = tracker.neg_w(m_neg,:);
-            tracker.neg_dis = tracker.neg_dis(m_neg,m_neg);
+            if sum(m_pos) > 0
+                tracker.pos_sv = tracker.pos_sv(m_pos,:);
+                tracker.pos_w = tracker.pos_w(m_pos,:);
+                tracker.pos_dis = tracker.pos_dis(m_pos,m_pos);
+            end
+            % update structrual information *******************
+%             tracker.pos_corr = tracker.pos_corr(:,:,m_pos);
+%             tracker.pos_ms = tracker.pos_ms(:,:,m_pos);
+            if sum(m_neg)>0
+                tracker.neg_sv = tracker.neg_sv(m_neg,:);
+                tracker.neg_w = tracker.neg_w(m_neg,:);
+                tracker.neg_dis = tracker.neg_dis(m_neg,m_neg);
+            end
         end
         
         % check if to merge
         while size(tracker.pos_sv,1)+size(tracker.neg_sv,1)>tracker.B
             [mm_pos,idx_pos] = min(tracker.pos_dis(:));
             [mm_neg,idx_neg] = min(tracker.neg_dis(:));
+            
             if mm_pos > mm_neg || size(tracker.pos_sv,1) <= tracker.B_p% merge negative samples
                 if config.verbose
                     fprintf('merge negative samples: %d \n', size(tracker.neg_w,1))
@@ -239,15 +268,23 @@ switch tracker.solver
                 w_j= tracker.pos_w(j);
                 merge_sample = (w_i*tracker.pos_sv(i,:)+w_j*tracker.pos_sv(j,:))/(w_i+w_j);                
                 
+                % update structrual information *******
+%                 pos_corr = (w_i/(w_i+w_j))*tracker.pos_corr(:,:,i) + ...
+%                     (w_j/(w_i+w_j))*tracker.pos_corr(:,:,j);
+%                 tracker.pos_corr(:,:,[i,j]) = [];
+%                 tracker.pos_corr(:,:,end+1) = pos_corr;
+%                 tracker.pos_ms(:,:,[i,j]) = [];
+%                 tracker.pos_ms(:,:,end+1) = merge_sample'*merge_sample;
+                
+                
                 tracker.pos_sv([i,j],:) = []; tracker.pos_sv(end+1,:) = merge_sample;
                 tracker.pos_w([i,j]) = []; tracker.pos_w(end+1,1) = w_i + w_j;
-%                 if size(tracker.pos_w,2)>1
-%                     keyboard
-%                 end
                 
                 tracker.pos_dis([i,j],:)=[]; tracker.pos_dis(:,[i,j])=[];
                 pos_dis_cro = pdist2(tracker.pos_sv(1:end-1,:),merge_sample);
-                tracker.pos_dis = [tracker.pos_dis, pos_dis_cro;pos_dis_cro',inf];    
+                tracker.pos_dis = [tracker.pos_dis, pos_dis_cro;pos_dis_cro',inf]; 
+                
+                
             end
             
         end

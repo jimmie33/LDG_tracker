@@ -1,5 +1,5 @@
-function tracker=updateTrackerLite(tracker,I_vf)
-
+function updateTrackerLite(I_vf)
+global tracker;
 nel=size(tracker.state,1);
 tracker.patterns_dt=zeros(nel,size(tracker.template,1)*size(tracker.template,2)*size(I_vf,3));
 valid_sample = boolean(zeros(1,nel));

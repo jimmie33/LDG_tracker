@@ -1,4 +1,4 @@
-function idx = svmTrackerDo (tracker,sample)
+function [idx confidence] = svmTrackerDo (tracker,sample)
 switch tracker.solver
     case 0
 %         [~,resp] = svmclassify_my (tracker.clsf,sample);
@@ -10,5 +10,7 @@ switch tracker.solver
     case 4 % psvm
         [~,idx] = max(sample*tracker.clsf.w);
     case 5 % tvm
-        [~,idx] = min(sample*tracker.clsf.w');
+        [~,idx] = min(sample*tracker.w');
+        confidence = -(sample(idx,:)*tracker.w'+tracker.Bias);
+        
 end

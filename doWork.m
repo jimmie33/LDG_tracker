@@ -1,8 +1,9 @@
 clc
 clear
 addpath(genpath('.'));
+addpath('../../mexopencv/mexopencv');
 
-input='..\data\lemming\';
+input='..\data\10_panda\';
 D = dir(fullfile(input,'*.jpg'));
 file_list={D.name};
 
@@ -13,11 +14,11 @@ k = 0.005;              %parameter of illumination invariant features
 
 %% control parameter
 record_vid = false;
-image_scale = 0.7;
+image_scale = 1;
 max_train_sz = 200;
 pixel_step = 4;
 use_color = true;
-search_roi = 2.5; % the ratio of the search radius to the longest edge of bbox
+search_roi = 3; % the ratio of the search radius to the longest edge of bbox
 init_step = 20;
 start_frame = 1;
 
@@ -27,7 +28,7 @@ visualize_medscore_size = 200;
 
 %% counters
 sample_count = 0;
-initialized = false;
+initialized = true;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -45,7 +46,7 @@ medscore=zeros(1,visualize_medscore_size);
 % config
 global config
 global finish %flag for determination
-config.verbose = true;
+config.verbose = false;
 config.image_scale = image_scale;
 config.use_color = use_color;
 config.search_roi = search_roi;
@@ -56,7 +57,9 @@ config.fd = fd;
 config.thr =thr;
 config.pixel_step = pixel_step;
 config.padding = 20;%for object out of border
-config.use_raw_feat = true;%do not explode the feature
+config.use_raw_feat = false;%do not explode the feature
+config.thresh_p = 0.1;
+config.thresh_n = 0.5;
 
 
 
@@ -78,15 +81,13 @@ for frame_id=start_frame:numel(file_list)
     
     %% read a frame
     I_orig=imread(fullfile(input,file_list{frame_id})); 
-    if config.padding >0
-        I_orig = padarray(I_orig,[config.padding, config.padding],'replicate');
-    end
-    [I I_orig]= getFrame2Compute(I_orig);
+    
+    [I_orig]= getFrame2Compute(I_orig);
     
     %% intialize a bbox
     if frame_id==start_frame
         figure(1)
-        imshow(I);
+        imshow(I_orig);
         % crop to get the initial window
         [InitPatch rect]=imcrop(I_orig); rect = round(rect);%
 %         rect = [170    66    56    65];
@@ -94,11 +95,11 @@ for frame_id=start_frame:numel(file_list)
     end
     
     %% compute ROI
-    roi = rsz_rt(tracker.output,size(I),config.search_roi);
+    roi = rsz_rt(tracker.output,size(I_orig),config.search_roi);
     tracker.roi = roi;
     
     %% crop frame
-    I_crop = I(tracker.roi(2):tracker.roi(4),tracker.roi(1):tracker.roi(3),:);
+    I_crop = I_orig(tracker.roi(2):tracker.roi(4),tracker.roi(1):tracker.roi(3),:);
     %% compute feature images
 tic
     alpha = exp(-sqrt(2)/(config.hist_decay*min(tracker.output(3:4))));
@@ -110,8 +111,8 @@ toc
 %    tic
    if frame_id==start_frame
        initTracker(rect,BC,pixel_step,use_color);
-       train_mask = (tracker.costs<0.1) | (tracker.costs>0.5);
-       label = tracker.costs(train_mask,1)<0.1;
+       train_mask = (tracker.costs<config.thresh_p) | (tracker.costs>config.thresh_n);
+       label = tracker.costs(train_mask,1)<config.thresh_p;
 %        ft_w = ones(1,size(tracker.template,1)*size(tracker.template,2)*size(tracker.template,3));
 tic
        svm_tracker = initSvmTracker(svm_tracker,tracker.patterns_dt(train_mask,:), label);
@@ -133,37 +134,46 @@ tic
            updateTracker(BC);
 toc
            rectangle('position',tracker.output,'LineWidth',2,'EdgeColor','b')
-           if frame_id >1 & tracker.med_score>0.0
+           if frame_id >0 & tracker.med_score>0.0
                initialized = true;
            end
        else %adhoc step for initialization finished
 tic
-           updateTracker(BC);
+           updateTrackerLite(BC);
 toc
-           svm_result_idx = svmTrackerDo(svm_tracker,tracker.patterns_dt);
+           [svm_result_idx svm_tracker.confidence]= svmTrackerDo(svm_tracker,tracker.patterns_dt);
            rectangle('position',tracker.output,'LineWidth',2,'EdgeColor','b')
-           rectangle('position',tracker.state_dt(svm_result_idx,:),'LineWidth',2,'EdgeColor','g')
-           tracker = correctTracker(tracker,BC,svm_result_idx);
-       end
-       train_mask = (tracker.costs<0.1) | (tracker.costs>0.4);
-       label = tracker.costs(train_mask,1)<0.1;
-      %% visualize traing sample
-       pos_train = tracker.state_dt(train_mask,:);
-       for k = 1:size(label,1)
-           px = pos_train(k,1)+0.5*pos_train(k,3);
-           py = pos_train(k,2)+0.5*pos_train(k,4);
-           if label(k)>0
-               rectangle('position',[px,py,1,1],'LineWidth',1,'EdgeColor','g')
+           if svm_tracker.confidence > -1
+               text(0,0,num2str(svm_tracker.confidence));
+               rectangle('position',tracker.state_dt(svm_result_idx,:),'LineWidth',2,'EdgeColor','g')
            else
-               rectangle('position',[px,py,1,1],'LineWidth',1,'EdgeColor','r')
+               text(0,0,num2str(svm_tracker.confidence));
+               rectangle('position',tracker.state_dt(svm_result_idx,:),'LineWidth',2,'EdgeColor','r')
+           end
+           if svm_tracker.confidence > -1
+               tracker = correctTracker(tracker,BC,svm_result_idx);
            end
        end
-
-%        [i1,i2,i3] = ndgrid(1:size(tracker.template,1),1:size(tracker.template,2),find(tracker.feat_w>0));
-%        ft_w = zeros(1,size(tracker.template,1)*size(tracker.template,2)*size(tracker.template,3));
-%        ft_w(:,sub2ind(size(tracker.template),i1(:),i2(:),i3(:))) = 1;
+       train_mask = (tracker.costs<config.thresh_p) | (tracker.costs>config.thresh_n);
+%        if svm_tracker.confidence < 0.7
+%            train_mask = train_mask & (tracker.costs>config.thresh_n);
+%        end
+       label = tracker.costs(train_mask,1)<config.thresh_p;
+      %% visualize traing sample
+%        pos_train = tracker.state_dt(train_mask,:);
+%        for k = 1:size(label,1)
+%            px = pos_train(k,1)+0.5*pos_train(k,3);
+%            py = pos_train(k,2)+0.5*pos_train(k,4);
+%            if label(k)>0
+%                rectangle('position',[px,py,1,1],'LineWidth',1,'EdgeColor','g')
+%            else
+%                rectangle('position',[px,py,1,1],'LineWidth',1,'EdgeColor','r')
+%            end
+%        end
 tic
-       svm_tracker = updateSvmTracker (svm_tracker,tracker.patterns_dt(train_mask,:),label);
+       if svm_tracker.confidence > -1
+           svm_tracker = updateSvmTracker (svm_tracker,tracker.patterns_dt(train_mask,:),label);
+       end
 toc
    end
 %    toc
@@ -178,26 +188,27 @@ toc
        Fr = getframe(fig);
        vid = addframe(vid,Fr);
    end
-   figure(2)
-   if ~use_color
-       subplot(1,3,1)
-       imshow(1-F{1});
-       subplot(1,3,2)
-       imshow(F{2});
-       subplot(1,3,3)
-       imshow(F{3});
-   else
-       subplot(1,5,1)
-       imshow(1-F{1});
-       subplot(1,5,2)
-       imshow(F{2});
-       subplot(1,5,3)
-       imshow(F{3});
-       subplot(1,5,4)
-       imshow(F{4});
-       subplot(1,5,5)
-       imshow(F{5});
-   end
+   
+%    figure(2)
+%    if ~use_color
+%        subplot(1,3,1)
+%        imshow(1-F{1});
+%        subplot(1,3,2)
+%        imshow(F{2});
+%        subplot(1,3,3)
+%        imshow(F{3});
+%    else
+%        subplot(1,5,1)
+%        imshow(1-F{1});
+%        subplot(1,5,2)
+%        imshow(F{2});
+%        subplot(1,5,3)
+%        imshow(F{3});
+%        subplot(1,5,4)
+%        imshow(F{4});
+%        subplot(1,5,5)
+%        imshow(F{5});
+%    end
        
    
 %    figure(3)
@@ -215,10 +226,10 @@ toc
    end
    figure(3)
    subplot(2,3,1)
-   plot(medscore,'-o')
+%    plot(medscore,'-o')
    subplot(2,3,2)
-   imshow(I_orig(round(tracker.output(2):tracker.output(2)+tracker.output(4)-1),...
-       round(tracker.output(1):tracker.output(1)+tracker.output(3)-1),:));
+%    imshow(I_orig(round(tracker.output(2):tracker.output(2)+tracker.output(4)-1),...
+%        round(tracker.output(1):tracker.output(1)+tracker.output(3)-1),:));
    subplot(2,3,3) % visualize svm weight vector
    svm_w = abs(reshape(svm_tracker.clsf.w,size(tracker.template,1),size(tracker.template,2),[]));
    imagesc(sum(svm_w,3));
@@ -229,13 +240,14 @@ toc
 %        fig = figure(5);
 %        clf(fig);
 %        sv_num = size(svm_tracker.pos_sv,1);
+%        pos_score_sv = -(svm_tracker.pos_sv*svm_tracker.clsf.w'+svm_tracker.clsf.Bias);
 %        for i = 1:sv_num
 %            sv = reshape(svm_tracker.pos_sv(i,:),size(tracker.template,1),...
 %                size(tracker.template,2),[]);
 %            sv = sv(:,:,3);
 %            subplot(1,sv_num,i)
 %            imshow(sv);
-%            text(0,0,num2str(svm_tracker.pos_w(i)));
+%            text(0,0,num2str(pos_score_sv(i)));
 %        end
 % %        pause
 %    end

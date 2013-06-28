@@ -3,6 +3,18 @@ function [feat F] = getFeatureRep(I,alpha,nbin,k,pixel_step)
 % decay factor and nbin is for the local histogram computation
 %
 global config
+
+if size(I,3) == 1
+    I = double(I)/255;
+    config.use_color = false;
+elseif config.use_color
+%     I = cv.cvtColor(I,'RGB2Lab');
+%     I = double(I)/255;
+    I = RGB2Lab(I);
+else
+    I = double(rgb2gray(I))/255;
+end
+
 fd = config.fd;
 thr = repmatls(reshape(config.thr,1,1,[]),[size(I,1), size(I,2)]);
 
@@ -15,6 +27,9 @@ if config.use_color
     F{4} = I(:,:,2);%color part
     F{5} = I(:,:,3);%color part
 end
+% if config.use_raw_feat
+%     F{6} = double(edge(I(:,:,1)));
+% end
 
 
 if config.use_raw_feat
@@ -30,5 +45,5 @@ else
     end    
 end
 
-feat = imfilter(feat,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
+feat = imfilter(feat,fspecial('gaussian',[9 9],0.2*pixel_step),'same','replicate');
 

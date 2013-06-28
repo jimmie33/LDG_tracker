@@ -3,7 +3,7 @@ global tracker;
 
 tracker.step = step;
 tracker.state=kron(ones(size(tracker.state,1),1),init_rect);
-tracker.state(:,1:2) = tracker.state(:,1:2)+(rand(size(tracker.state,1),2)-0.5).*(tracker.radius*2*tracker.state(:,3:4));
+tracker.state(:,1:2) = tracker.state(:,1:2)+(rand(size(tracker.state,1),2)-0.5).*(tracker.radius*2*max(tracker.state(1,3:4)));
 tracker.output=init_rect;
 tracker.topK=kron(ones(10,1),init_rect);
 tracker.shrange = [init_rect(1)-init_rect(3),init_rect(2)-init_rect(4),...
