@@ -132,8 +132,8 @@ switch tracker.solver
         s1 = sum(sample_w(pos_mask));
         s2 = sum(sample_w(neg_mask));
         
-        sample_w(pos_mask) = sample(pos_mask)*s2;
-        sample_w(neg_mask) = sample(neg_mask)*s1;
+        sample_w(pos_mask) = sample_w(pos_mask)*s2;
+        sample_w(neg_mask) = sample_w(neg_mask)*s1;
         
         C = tracker.C*sample_w/sum(sample_w);
         
@@ -153,8 +153,8 @@ switch tracker.solver
         end
         %**************************
         if ~isempty(tracker.w)
-            tracker.w = 0.8*tracker.w + 0.2*tracker.clsf.Alpha'*tracker.clsf.SupportVectors;
-            tracker.Bias = 0.8*tracker.Bias + 0.2*tracker.clsf.Bias;
+            tracker.w = 0.9*tracker.w + 0.1*tracker.clsf.Alpha'*tracker.clsf.SupportVectors;
+            tracker.Bias = 0.9*tracker.Bias + 0.1*tracker.clsf.Bias;
         else
             tracker.w = tracker.clsf.Alpha'*tracker.clsf.SupportVectors;
             tracker.Bias = tracker.clsf.Bias;
