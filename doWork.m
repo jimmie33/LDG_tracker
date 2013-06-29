@@ -3,7 +3,7 @@ clear
 addpath(genpath('.'));
 addpath('../../mexopencv/mexopencv');
 
-input='..\data\Freeman3\img\';
+input='..\data\singer2\';
 D = dir(fullfile(input,'*.jpg'));
 file_list={D.name};
 
@@ -14,11 +14,11 @@ k = 0.005;              %parameter of illumination invariant features
 
 %% control parameter
 record_vid = false;
-image_scale = 1;
+image_scale = 0.5;
 max_train_sz = 200;
-pixel_step = 3;
-use_color = false;
-search_roi = 3; % the ratio of the search radius to the longest edge of bbox
+pixel_step = 5;
+use_color = true;
+search_roi = 1.7; % the ratio of the search radius to the longest edge of bbox
 init_step = 20;
 start_frame = 1;
 
@@ -124,7 +124,7 @@ toc
        
         figure(1)
         imshow(I_orig);       
-        roi_reg = sampler.roi; roi_reg(3:4) = roi(3:4)-roi(1:2);
+        roi_reg = sampler.roi; roi_reg(3:4) = sampler.roi(3:4)-sampler.roi(1:2);
         roi_reg = roi_reg*svm_tracker.scale;
         rectangle('position',roi_reg,'LineWidth',1,'EdgeColor','r');
        
@@ -134,14 +134,14 @@ toc
 % toc
 %         svmTrackerDo(sampler.patterns_dt);
 % %         rectangle('position',svm_tracker.output,'LineWidth',2,'EdgeColor','b')
-        svmTrackerUpDownSampling(BC);
+        BC = svmTrackerUpDownSampling(BC);
         
         if svm_tracker.confidence > -1
             text(0,0,num2str(svm_tracker.confidence));
-            rectangle('position',svm_tracker.output,'LineWidth',2,'EdgeColor','g')
+            rectangle('position',svm_tracker.output*svm_tracker.scale,'LineWidth',2,'EdgeColor','g')
         else
             text(0,0,num2str(svm_tracker.confidence));
-            rectangle('position',svm_tracker.output,'LineWidth',2,'EdgeColor','r')
+            rectangle('position',svm_tracker.output*svm_tracker.scale,'LineWidth',2,'EdgeColor','r')
         end
 tic
         if svm_tracker.confidence > -1
@@ -197,8 +197,9 @@ toc
    figure(3)
 
    subplot(2,2,1)
-   imshow(I_orig(round(svm_tracker.output(2):svm_tracker.output(2)+svm_tracker.output(4)-1),...
-       round(svm_tracker.output(1):svm_tracker.output(1)+svm_tracker.output(3)-1),:));
+   output = svm_tracker.output*svm_tracker.scale;
+   imshow(I_orig(round(output(2):output(2)+output(4)-1),...
+       round(output(1):output(1)+output(3)-1),:));
    subplot(2,2,2) % visualize svm weight vector
    svm_w = abs(reshape(svm_tracker.w,size(sampler.template,1),size(sampler.template,2),[]));
    imagesc(sum(svm_w,3));
