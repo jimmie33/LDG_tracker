@@ -1,27 +1,22 @@
-function resample(I_vf)
+function resample(I_vf,sample_sz,radius)
 global sampler;
 global svm_tracker;
 
 %% updata sampler states
 
-temp = repmatls(svm_tracker.output,[round(size(sampler.state,1)/1),1]);
-rad = (rand(size(temp,1),1))*(1.3*max(sampler.state(1,3:4)));
-angle = rand(size(temp,1),1)*2*pi;
-temp(:,1:2) = temp(:,1:2) + [cos(angle).*rad,sin(angle).*rad];
-temp(1,:) = svm_tracker.output;% at least one original gt
-sampler.state = temp;
-temp = sampler.state;
+temp = repmatls(svm_tracker.output,[sample_sz,1]);
+rad = (rand(size(temp,1)-1,1))*(radius*max([sampler.template_width,sampler.template_height]));
+angle = rand(size(temp,1)-1,1)*2*pi;
+temp(2:end,1:2) = temp(2:end,1:2) + [cos(angle).*rad,sin(angle).*rad];
 
 %% update training samples
-nel = size(temp,1);
-sampler.patterns_dt=zeros(nel,size(sampler.template,1)*size(sampler.template,2)*size(I_vf,3));
-valid_sample = boolean(zeros(1,nel));
-for i=round(1:nel)
+sampler.patterns_dt=zeros(sample_sz,size(sampler.template,1)*size(sampler.template,2)*size(I_vf,3));
+valid_sample = boolean(zeros(1,sample_sz));
+for i=1:sample_sz
    rect=temp(i,:);
    upleft = round([rect(1)-sampler.roi(1)+1,rect(2)-sampler.roi(2)+1]);
    if ~((upleft(1)<1) || (upleft(2)<1) || (upleft(1)+rect(3)>size(I_vf,2)) || (upleft(2)+rect(4)>size(I_vf,1)))
        sub_win=I_vf(round(upleft(2): sampler.step:(upleft(2)+rect(4))),round(upleft(1): sampler.step : (upleft(1)+rect(3))),:);
-       %%
        sampler.patterns_dt(i,:) = sub_win(:)';
        valid_sample(i) = 1;
    end

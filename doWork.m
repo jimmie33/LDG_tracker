@@ -129,12 +129,12 @@ toc
         rectangle('position',roi_reg,'LineWidth',1,'EdgeColor','r');
        
         %correct sampler and label
-tic
-        updateSample(BC);
-toc
-        svmTrackerDo(sampler.patterns_dt);
+% tic
+%         updateSample(BC,300,1.3);
+% toc
+%         svmTrackerDo(sampler.patterns_dt);
 % %         rectangle('position',svm_tracker.output,'LineWidth',2,'EdgeColor','b')
-%         svmTrackerUpDownSampling(BC);
+        svmTrackerUpDownSampling(BC);
         
         if svm_tracker.confidence > -1
             text(0,0,num2str(svm_tracker.confidence));
@@ -145,7 +145,7 @@ toc
         end
 tic
         if svm_tracker.confidence > -1
-            resample(BC);        
+            resample(BC,50,1.3);        
             train_mask = (sampler.costs<config.thresh_p) | (sampler.costs>config.thresh_n);
             label = sampler.costs(train_mask,1)<config.thresh_p;       
             updateSvmTracker (sampler.patterns_dt(train_mask,:),label);            

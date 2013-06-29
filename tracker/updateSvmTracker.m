@@ -115,13 +115,13 @@ switch svm_tracker.solver
 %         figure(4)
 %         bar([size(svm_tracker.pos_sv,1),size(svm_tracker.neg_sv,1)]);
         
-        score = -(sample*svm_tracker.clsf.w'+svm_tracker.clsf.Bias);
-        pos_score = score(label>0.5);
-        neg_score = score(label<0.5);
-        mask = (rand(size(label))>0.5); %& ...
-            %(score > max(neg_score) | score<min(pos_score));
-        sample = sample(mask,:);
-        label = label(mask,:);
+%         score = -(sample*svm_tracker.clsf.w'+svm_tracker.clsf.Bias);
+%         pos_score = score(label>0.5);
+%         neg_score = score(label<0.5);
+%         mask = (rand(size(label))>0.5); %& ...
+%             %(score > max(neg_score) | score<min(pos_score));
+%         sample = sample(mask,:);
+%         label = label(mask,:);
         num_newsample = size(sample,1);
 
         sample = [svm_tracker.pos_sv;svm_tracker.neg_sv; sample];
