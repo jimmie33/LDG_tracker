@@ -20,25 +20,23 @@ thr = repmatls(reshape(config.thr,1,1,[]),[size(I,1), size(I,2)]);
 
 hist_mtx1 = LSH(I(:,:,1)*255, alpha, nbin);%local histogram 0.033
 
-F{1} = IIF(I(:,:,1)*255, hist_mtx1, k, nbin);%semi-affine invariant feature
-F{2} = IIF2(I(:,:,1)*255, hist_mtx1, k, nbin);%feature by pixel ordering
-F{3} = I(:,:,1);%gray image
+% F{1} = IIF(I(:,:,1)*255, hist_mtx1, k, nbin);%semi-affine invariant feature
+F{1} = IIF2(I(:,:,1)*255, hist_mtx1, k, nbin);%feature by pixel ordering
+F{2} = I(:,:,1);%gray image
 if config.use_color
-    F{4} = I(:,:,2);%color part
-    F{5} = I(:,:,3);%color part
+    F{3} = I(:,:,2);%color part
+    F{4} = I(:,:,3);%color part
 end
-% if config.use_raw_feat
-%     F{6} = double(edge(I(:,:,1)));
-% end
+
 
 
 if config.use_raw_feat
     feat = reshape(cell2mat(F),size(F{1},1),size(F{1},2),[]);    
 else
     if ~config.use_color
-        feat = zeros([size(I(:,:,1)),3*config.fd]);
+        feat = zeros([size(I(:,:,1)),2*config.fd]);
     else
-        feat = zeros([size(I(:,:,1)),5*config.fd]);
+        feat = zeros([size(I(:,:,1)),4*config.fd]);
     end
     for i = 1:numel(F)
         feat(:,:,(i-1)*fd+1:i*fd) = repmatls(F{i},[1 1 fd]) > thr;
