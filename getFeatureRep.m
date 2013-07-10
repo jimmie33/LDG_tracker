@@ -18,7 +18,7 @@ end
 fd = config.fd;
 thr = repmatls(reshape(config.thr,1,1,[]),[size(I,1), size(I,2)]);
 
-hist_mtx1 = LSH(I(:,:,1)*255, alpha, nbin);%local histogram 0.033
+hist_mtx1 = LSH(I(:,:,1)*255, config.pixel_step*4+1, nbin);%local histogram 0.033
 
 % F{1} = IIF(I(:,:,1)*255, hist_mtx1, k, nbin);%semi-affine invariant feature
 F{1} = IIF2(I(:,:,1)*255, hist_mtx1, k, nbin);%feature by pixel ordering
@@ -43,5 +43,5 @@ else
     end    
 end
 
-feat = imfilter(feat,fspecial('gaussian',[9 9],0.2*pixel_step),'same','replicate');
+feat = imfilter(feat,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
 

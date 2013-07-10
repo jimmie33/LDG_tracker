@@ -3,7 +3,7 @@ clear
 addpath(genpath('.'));
 addpath('../../mexopencv/mexopencv');
 
-input='..\data\singer2\';
+input='..\data\09_carchase';
 D = dir(fullfile(input,'*.jpg'));
 file_list={D.name};
 
@@ -13,12 +13,12 @@ alpha = 0.5;         %parameter of LSH, [0.0,1.0]
 k = 0.005;              %parameter of illumination invariant features
 
 %% control parameter
-record_vid = false;
-image_scale = 0.5;
+record_vid = true;
+image_scale = 1;
 max_train_sz = 200;
 pixel_step = 5;
 use_color = true;
-search_roi = 1.7; % the ratio of the search radius to the longest edge of bbox
+search_roi = 3; % the ratio of the search radius to the longest edge of bbox
 init_step = 20;
 start_frame = 1;
 
@@ -58,10 +58,11 @@ config.IIF_k = 0.005;
 config.fd = fd;
 config.thr =thr;
 config.pixel_step = pixel_step;
-config.padding = 20;%for object out of border
+config.padding = 40;%for object out of border
 config.use_raw_feat = false;%do not explode the feature
 config.thresh_p = 0.1;
 config.thresh_n = 0.5;
+config.scale_change = true;
 
 
 
@@ -70,6 +71,7 @@ if record_vid
 end
 
 figure(1); set(1,'KeyPressFcn', @handleKey); % open figure for display of result
+% figure(2); set(2,'KeyPressFcn', @handleKey); 
 figure(3); set(3,'KeyPressFcn', @handleKey); 
 finish = 0; 
 
@@ -136,7 +138,7 @@ toc
 % %         rectangle('position',svm_tracker.output,'LineWidth',2,'EdgeColor','b')
         BC = svmTrackerUpDownSampling(BC);
         
-        if svm_tracker.confidence > -1
+        if svm_tracker.confidence > -0.5
             text(0,0,num2str(svm_tracker.confidence));
             rectangle('position',svm_tracker.output*svm_tracker.scale,'LineWidth',2,'EdgeColor','g')
         else
@@ -144,8 +146,8 @@ toc
             rectangle('position',svm_tracker.output*svm_tracker.scale,'LineWidth',2,'EdgeColor','r')
         end
 tic
-        if svm_tracker.confidence > -1
-            resample(BC,50,1.3);        
+        if svm_tracker.confidence > -0.5
+            resample(BC,100,1.3);        
             train_mask = (sampler.costs<config.thresh_p) | (sampler.costs>config.thresh_n);
             label = sampler.costs(train_mask,1)<config.thresh_p;       
             updateSvmTracker (sampler.patterns_dt(train_mask,:),label);            
@@ -174,23 +176,23 @@ toc
    
 %    figure(2)
 %    if ~use_color
-%        subplot(1,3,1)
+%        subplot(1,2,1)
 %        imshow(1-F{1});
-%        subplot(1,3,2)
+%        subplot(1,2,2)
 %        imshow(F{2});
-%        subplot(1,3,3)
-%        imshow(F{3});
+% %        subplot(1,3,3)
+% %        imshow(F{3});
 %    else
-%        subplot(1,5,1)
+%        subplot(1,4,1)
 %        imshow(1-F{1});
-%        subplot(1,5,2)
+%        subplot(1,4,2)
 %        imshow(F{2});
-%        subplot(1,5,3)
+%        subplot(1,4,3)
 %        imshow(F{3});
-%        subplot(1,5,4)
+%        subplot(1,4,4)
 %        imshow(F{4});
-%        subplot(1,5,5)
-%        imshow(F{5});
+% %        subplot(1,5,5)
+% %        imshow(F{5});
 %    end
        
    
@@ -198,8 +200,8 @@ toc
 
    subplot(2,2,1)
    output = svm_tracker.output*svm_tracker.scale;
-   imshow(I_orig(round(output(2):output(2)+output(4)-1),...
-       round(output(1):output(1)+output(3)-1),:));
+   imshow(I_orig(round(output(2)+1:output(2)+output(4)-1),...
+       round(output(1)+1:output(1)+output(3)-1),:));
    subplot(2,2,2) % visualize svm weight vector
    svm_w = abs(reshape(svm_tracker.w,size(sampler.template,1),size(sampler.template,2),[]));
    imagesc(sum(svm_w,3));

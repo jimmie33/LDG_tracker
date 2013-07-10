@@ -2,7 +2,7 @@
 % by Shengfeng He, Qingxiong Yang, Rynson W.H. Lau, Jiang Wang, and Ming-Hsuan Yang
 % To appear in Proceedings of IEEE Conference on Computer Vision and Pattern Recognition (CVPR 2013), Portland, June, 2013.
 % hist_mtx output a (x,y,b) matrix
-function hist_mtx = LSH(img, alpha, nbin)
+function hist_mtx = LSH(img, ksize, nbin)
 
     color_max = 256;
     color_range = 0:color_max/nbin:color_max;
@@ -13,9 +13,11 @@ function hist_mtx = LSH(img, alpha, nbin)
     q_mtx = double((img_rep >= l) & (img_rep<u));
 
     % 95% accuracy kernel
-    kernel = getExpKernel1D(alpha,2*round( log(0.5*0.025*(1-alpha))/log(alpha)-1 )+1);
-    hist_mtx = imfilter(q_mtx,kernel,'same','replicate');
-    hist_mtx = imfilter(hist_mtx,kernel','same','replicate');
+%     kernel = getExpKernel1D(alpha,2*round( log(0.5*0.025*(1-alpha))/log(alpha)-1 )+1);
+%     hist_mtx = imfilter(q_mtx,kernel,'same','replicate');
+%     hist_mtx = imfilter(hist_mtx,kernel','same','replicate');
+    hist_mtx = cv.blur_t(q_mtx,'KSize',[ksize ksize]);
+%     hist_mtx = imfilter(q_mtx,fspecial('average',20),'replicate');
 
 end
 
