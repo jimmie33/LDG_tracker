@@ -17,7 +17,7 @@ function hist_mtx = LSH(img, ksize, nbin)
 %     hist_mtx = imfilter(q_mtx,kernel,'same','replicate');
 %     hist_mtx = imfilter(hist_mtx,kernel','same','replicate');
     hist_mtx = cv.blur_t(q_mtx,'KSize',[ksize ksize]);
-%     hist_mtx = imfilter(q_mtx,fspecial('average',20),'replicate');
+%     hist_mtx = imfilter(q_mtx,fspecial('average',ksize),'replicate');
 
 end
 

@@ -1,10 +1,11 @@
+function doWork
 clc
 clear
 addpath(genpath('.'));
 addpath('../../mexopencv/mexopencv');
 
-input='..\data\09_carchase';
-D = dir(fullfile(input,'*.jpg'));
+input='..\data\tiger';
+D = dir(fullfile(input,'*.png'));
 file_list={D.name};
 
 %%for LSH
@@ -13,11 +14,11 @@ alpha = 0.5;         %parameter of LSH, [0.0,1.0]
 k = 0.005;              %parameter of illumination invariant features
 
 %% control parameter
-record_vid = true;
+record_vid = false;
 image_scale = 1;
 max_train_sz = 200;
-pixel_step = 5;
-use_color = true;
+pixel_step = 3;
+use_color = false;
 search_roi = 3; % the ratio of the search radius to the longest edge of bbox
 init_step = 20;
 start_frame = 1;
@@ -39,7 +40,7 @@ sampler=createSampler();
 svm_tracker = createSvmTracker();
 
 sam_num = 9;
-thr = 1/sam_num:1/sam_num:1-1/sam_num;
+thr = (1/sam_num:1/sam_num:1-1/sam_num)*255;
 fd = length(thr);
 patterns={};
 costs={};
@@ -62,7 +63,7 @@ config.padding = 40;%for object out of border
 config.use_raw_feat = false;%do not explode the feature
 config.thresh_p = 0.1;
 config.thresh_n = 0.5;
-config.scale_change = true;
+config.scale_change = false;
 
 
 

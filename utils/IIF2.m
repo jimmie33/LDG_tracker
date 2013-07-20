@@ -1,4 +1,4 @@
-function feature_img = IIF2(img, hist_mtx, k, nbin)
+function feature_img = IIF2(img, hist_mtx,nbin)
     
     color_max = 256;
     color_range = 0:color_max/nbin:color_max;
