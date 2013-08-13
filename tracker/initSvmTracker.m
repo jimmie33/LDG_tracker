@@ -72,6 +72,7 @@ switch svm_tracker.solver
         end
         
     case 5 % tvm
+        svm_tracker.struct_mat = eye(size(sample,2));
         svm_tracker.clsf = svmtrain( sample, label,'boxconstraint',svm_tracker.C,'autoscale','false');
         svm_tracker.clsf.w = svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors;
         svm_tracker.w = svm_tracker.clsf.w;
@@ -83,6 +84,11 @@ switch svm_tracker.solver
         svm_tracker.pos_w = ones(size(svm_tracker.pos_sv,1),1);
         svm_tracker.neg_sv = svm_tracker.sv_full(svm_tracker.sv_label<0.5,:);
         svm_tracker.neg_w = ones(size(svm_tracker.neg_sv,1),1);
+        
+        % compute real margin
+        pos2plane = -svm_tracker.pos_sv*svm_tracker.w';
+        neg2plane = -svm_tracker.neg_sv*svm_tracker.w';
+        svm_tracker.margin = (min(pos2plane) - max(neg2plane))/norm(svm_tracker.w);
         
         % calculate distance matrix
         if size(svm_tracker.pos_sv,1)>1

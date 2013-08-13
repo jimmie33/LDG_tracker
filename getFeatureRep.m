@@ -1,4 +1,4 @@
-function [feat F] = getFeatureRep(I,alpha,nbin,k,pixel_step)
+function [feat F] = getFeatureRep(I,nbin,pixel_step)
 % compute feature representation: mxnxd, d is the feature dimension
 % decay factor and nbin is for the local histogram computation
 %
@@ -7,13 +7,13 @@ global config
 if size(I,3) == 3 && config.use_color
 %     I = cv.cvtColor(I,'RGB2Lab');
 %     I = double(I)/255;
-    I = RGB2Lab(I);
+    I = uint8(255*RGB2Lab(I));
 elseif size(I,3) == 3
     I = rgb2gray(I);
 end
 
 fd = config.fd;
-thr = repmatls(reshape(config.thr,1,1,[]),[size(I,1), size(I,2)]);
+% thr = repmatls(reshape(config.thr,1,1,[]),[size(I,1), size(I,2)]);
 
 % hist_mtx1 = LSH(I(:,:,1)*255, config.pixel_step*4+1, nbin);%local histogram 0.033
 
@@ -29,7 +29,7 @@ end
 
 
 if config.use_raw_feat
-    feat = double(reshape(cell2mat(F),size(F{1},1),size(F{1},2),[]));    
+    feat = double(reshape(cell2mat(F),size(F{1},1),size(F{1},2),[]))/255;    
 else
     if ~config.use_color
         feat = zeros([size(I(:,:,1)),2*config.fd]);
@@ -37,10 +37,12 @@ else
         feat = zeros([size(I(:,:,1)),4*config.fd]);
     end
     for i = 1:numel(F)
-        feat(:,:,(i-1)*fd+1:i*fd) = repmatls(F{i},[1 1 fd]) > thr;
+        feat(:,:,(i-1)*fd+1:i*fd) = bsxfun(@gt,repmatls(F{i},[1 1 fd]), reshape(config.thr,1,1,[]));
     end    
 end
 
 feat = imfilter(feat,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
+F = double(reshape(cell2mat(F),size(F{1},1),size(F{1},2),[]));
+F = imfilter(F,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
 % feat = cv.GaussianBlur_t(feat,'KSize',[ksize ksize],'SigmaX',0.5*pixel_step);
 

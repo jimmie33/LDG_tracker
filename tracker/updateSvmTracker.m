@@ -1,4 +1,4 @@
-function updateSvmTracker(sample,label)
+function updateSvmTracker(sample,label,fuzzy_weight)
 global config;
 global svm_tracker;
 % svm_tracker.feat_w = feat_w;
@@ -126,7 +126,7 @@ switch svm_tracker.solver
 
         sample = [svm_tracker.pos_sv;svm_tracker.neg_sv; sample];
         label = [ones(size(svm_tracker.pos_sv,1),1);zeros(size(svm_tracker.neg_sv,1),1);label];% positive:1 negative:0
-        sample_w = [svm_tracker.pos_w;svm_tracker.neg_w;ones(num_newsample,1)];
+        sample_w = [svm_tracker.pos_w;svm_tracker.neg_w;fuzzy_weight];
        
         pos_mask = label>0.5;
         neg_mask = ~pos_mask;
@@ -136,7 +136,7 @@ switch svm_tracker.solver
         sample_w(pos_mask) = sample_w(pos_mask)*s2;
         sample_w(neg_mask) = sample_w(neg_mask)*s1;
         
-        C = svm_tracker.C*sample_w/sum(sample_w);
+        C = max(svm_tracker.C*sample_w/sum(sample_w),0.001);
         
         % whitening ********************
 %         tmp_msk = svm_tracker.pos_w > 1;
@@ -145,20 +145,20 @@ switch svm_tracker.solver
 %         svm_tracker.whitening = sqrtm(inv(wht));
         
         if config.verbose
-            svm_tracker.clsf = svmtrain_my( sample, label, 'boxconstraint',C,...
-                'autoscale','false','options',statset('Display','final','MaxIter',5000));
+            svm_tracker.clsf = svmtrain_my( sample, label, ...%'kernel_function',@kfun,'kfunargs',{svm_tracker.struct_mat},...
+                'boxconstraint',C,'autoscale','false','options',statset('Display','final','MaxIter',5000));
             fprintf('feat_d: %d; train_num: %d; sv_num: %d \n',size(sample,2),size(sample,1),size(svm_tracker.clsf.Alpha,1)); 
         else
-            svm_tracker.clsf = svmtrain_my( sample, label, 'boxconstraint',C,...
-                'autoscale','false','options',statset('MaxIter',5000));
+            svm_tracker.clsf = svmtrain_my( sample, label, ...%'kernel_function',@kfun,'kfunargs',{svm_tracker.struct_mat},...
+                'boxconstraint',C,'autoscale','false','options',statset('MaxIter',5000));
         end
         %**************************
         if ~isempty(svm_tracker.w)
             s_rate = svm_tracker.w_smooth_rate;
-            svm_tracker.w = s_rate*svm_tracker.w + (1-s_rate)*svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors;
+            svm_tracker.w = s_rate*svm_tracker.w + (1-s_rate)*svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors*svm_tracker.struct_mat;
             svm_tracker.Bias = s_rate*svm_tracker.Bias + (1-s_rate)*svm_tracker.clsf.Bias;
         else
-            svm_tracker.w = svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors;
+            svm_tracker.w = svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors*svm_tracker.struct_mat;
             svm_tracker.Bias = svm_tracker.clsf.Bias;
         end
         svm_tracker.clsf.w = svm_tracker.w;
@@ -210,6 +210,12 @@ switch svm_tracker.solver
         
         svm_tracker.pos_dis = svm_tracker.pos_dis + diag(inf*ones(size(svm_tracker.pos_dis,1),1));
         svm_tracker.neg_dis = svm_tracker.neg_dis + diag(inf*ones(size(svm_tracker.neg_dis,1),1));
+        
+        
+        % compute real margin
+        pos2plane = -svm_tracker.pos_sv*svm_tracker.w';
+        neg2plane = -svm_tracker.neg_sv*svm_tracker.w';
+        svm_tracker.margin = (min(pos2plane) - max(neg2plane))/norm(svm_tracker.w);
         
         % shrink svs
         % check if to remove
@@ -290,7 +296,11 @@ switch svm_tracker.solver
             end
             
         end
-        
-        
-        
+     
 end
+
+
+
+% function c = kfun(a,b,m)
+% 
+% c = a*m*b';
