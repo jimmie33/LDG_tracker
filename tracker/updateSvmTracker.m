@@ -296,6 +296,10 @@ switch svm_tracker.solver
             end
             
         end
+        
+        % update experts
+        svm_tracker.experts{end}.w = svm_tracker.w;
+        svm_tracker.experts{end}.Bias = svm_tracker.Bias;
      
 end
 

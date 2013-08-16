@@ -5,7 +5,7 @@ global svm_tracker
 global config
 
 
-updateSample(I_vf,I,1000,2);
+updateSample(I_vf,I,500,1);
 % svmTrackerDo(sampler.patterns_dt);
 % updateSample(I_vf,50,0.1);
 % svmTrackerDo(sampler.patterns_dt);

@@ -1,4 +1,4 @@
-function initSvmTracker (sample,label)
+function initSvmTracker (sample,label,fuzzy_weight)
 % svm_tracker.feat_w = feat_w;
 global config
 global svm_tracker;
@@ -72,8 +72,27 @@ switch svm_tracker.solver
         end
         
     case 5 % tvm
+        
+        num_newsample = size(sample,1);
+
+%         sample = [svm_tracker.pos_sv;svm_tracker.neg_sv; sample];
+%         label = [ones(size(svm_tracker.pos_sv,1),1);zeros(size(svm_tracker.neg_sv,1),1);label];% positive:1 negative:0
+        sample_w = fuzzy_weight;
+       
+        pos_mask = label>0.5;
+        neg_mask = ~pos_mask;
+        s1 = sum(sample_w(pos_mask));
+        s2 = sum(sample_w(neg_mask));
+        
+        sample_w(pos_mask) = sample_w(pos_mask)*s2;
+        sample_w(neg_mask) = sample_w(neg_mask)*s1;
+        
+        C = max(svm_tracker.C*sample_w/sum(sample_w),0.001);
+        
+        svm_tracker.clsf = svmtrain( sample, label,'boxconstraint',C,'autoscale','false');
+        
         svm_tracker.struct_mat = eye(size(sample,2));
-        svm_tracker.clsf = svmtrain( sample, label,'boxconstraint',svm_tracker.C,'autoscale','false');
+       
         svm_tracker.clsf.w = svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors;
         svm_tracker.w = svm_tracker.clsf.w;
         svm_tracker.Bias = svm_tracker.clsf.Bias;
@@ -97,6 +116,19 @@ switch svm_tracker.solver
             svm_tracker.pos_dis = inf;
         end
         svm_tracker.neg_dis = squareform(pdist(svm_tracker.neg_sv)); 
+        
+        %% intialize tracker experts
+        svm_tracker.experts{1}.w = svm_tracker.w;
+        svm_tracker.experts{1}.Bias = svm_tracker.Bias;
+        svm_tracker.experts{1}.score = [];
+        
+%         svm_tracker.experts{2}.w = svm_tracker.w;
+%         svm_tracker.experts{2}.Bias = svm_tracker.Bias;
+%         svm_tracker.experts{2}.score = [];
+%         
+%         svm_tracker.experts{3}.w = svm_tracker.w;
+%         svm_tracker.experts{3}.Bias = svm_tracker.Bias;
+%         svm_tracker.experts{3}.score = [];
         
         % structral information
 %         svm_tracker.pos_corr = zeros(size(svm_tracker.pos_sv,2),size(svm_tracker.pos_sv,2),...

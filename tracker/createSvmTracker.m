@@ -18,6 +18,10 @@ tracker.state = 0;
 tracker.temp_count = 0;
 tracker.output_feat_record = [];
 tracker.feat_cache = [];
+tracker.experts = {};
+tracker.max_expert_sz = 6;
+tracker.expert_update_interval = 25;
+tracker.best_expert_idx = 1;
 tracker.solver = 5; %0: matlab built-in
                     %1: liblinear
                     %2: libsvm

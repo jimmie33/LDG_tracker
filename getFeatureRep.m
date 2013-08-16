@@ -41,8 +41,8 @@ else
     end    
 end
 
-feat = imfilter(feat,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
+% feat = imfilter(feat,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
 F = double(reshape(cell2mat(F),size(F{1},1),size(F{1},2),[]));
-F = imfilter(F,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
+% F = imfilter(F,fspecial('gaussian',[3 3],0.1*pixel_step),'same','replicate');
 % feat = cv.GaussianBlur_t(feat,'KSize',[ksize ksize],'SigmaX',0.5*pixel_step);
 
