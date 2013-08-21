@@ -4,7 +4,7 @@ clear
 addpath(genpath('.'));
 addpath('../../mexopencv/mexopencv');
 
-input='..\data\singer2';
+input='..\data\lemming';
 D = dir(fullfile(input,'*.jpg'));
 file_list={D.name};
 
@@ -50,27 +50,6 @@ medscore=zeros(1,visualize_medscore_size);
 % config
 global config
 global finish %flag for determination
-config.verbose = false;
-config.image_scale = image_scale;
-config.use_color = use_color;
-config.search_roi = search_roi;
-config.hist_decay = 0.1;
-config.hist_nbin = 32;
-config.IIF_k = 0.005;
-config.fd = fd;
-config.thr =thr;
-config.pixel_step = pixel_step;
-config.padding = 40;%for object out of border
-config.use_raw_feat = false;%do not explode the feature
-config.thresh_p = 0.1;
-config.thresh_n = 0.5;
-config.scale_change = false;
-config.lambda = 100;
-config.tracking_failure = false;
-config.ellipse_mask = false; %mask the template with an ellipse;
-
-
-
 
 if record_vid
     vid = avifile('./output/output3.avi');
@@ -81,66 +60,62 @@ figure(1); set(1,'KeyPressFcn', @handleKey); % open figure for display of result
 figure(3); set(3,'KeyPressFcn', @handleKey); 
 finish = 0; 
 
-disagreement_count = 0;
-ambiguity_loss = [];
-ambiguity_loss_old = [];
-amb_count = 0;
 
 for frame_id=start_frame:numel(file_list)
     
-    disp('**********************')
+%     disp('**********************')
     if finish == 1
         break;
     end
     
     %% read a frame
-    I_orig=imread(fullfile(input,file_list{frame_id}));     
-    [I_orig]= getFrame2Compute(I_orig);
-    
-    %% intialize a bbox
+    I_orig=imread(fullfile(input,file_list{frame_id}));
+    %% intialization
     if frame_id==start_frame
         figure(1)
         imshow(I_orig);
         % crop to get the initial window
         [InitPatch rect]=imcrop(I_orig); rect = round(rect);%
-        svm_tracker.output = rect;svm_tracker.output_exp = rect;
+        disp(rect);
+        config = makeConfig(I_orig,rect);
+        svm_tracker.output = rect*config.image_scale;
+        svm_tracker.output(1:2) = svm_tracker.output(1:2) + config.padding;
+        svm_tracker.output_exp = svm_tracker.output;
     end
-    
+    [I_orig]= getFrame2Compute(I_orig);
     %% compute ROI and scale image
     I_scale = cv.resize(I_orig,1/svm_tracker.scale);
     if frame_id == start_frame
         roi = rsz_rt(svm_tracker.output,size(I_scale),6);
-    elseif ~config.tracking_failure && svm_tracker.confidence > 0
+    elseif svm_tracker.confidence > 0
         roi = rsz_rt(svm_tracker.output,size(I_scale),config.search_roi);
     else % use the same roi
 %         roi = rsz_rt(svm_tracker.output,size(I_scale),5*config.search_roi);
     end
-    rect
     sampler.roi = roi; 
     
     %% crop frame
     I_crop = I_scale(sampler.roi(2):sampler.roi(4),sampler.roi(1):sampler.roi(3),:);
     
     %% compute feature images
-tic
-    if ~config.tracking_failure
-        [BC F] = getFeatureRep(I_crop,config.hist_nbin,config.pixel_step);
-    end
+% tic
+    [BC F] = getFeatureRep(I_crop,config.hist_nbin,config.pixel_step);
+
 %     F = cell2mat(reshape(F,1,1,[]));
-toc   
+% toc   
    
    %% tracking part
 %    tic
     if frame_id==start_frame
-        initSampler(rect,BC,F,pixel_step,use_color);
+        initSampler(svm_tracker.output,BC,F,config.pixel_step,config.use_color);
         train_mask = (sampler.costs<config.thresh_p) | (sampler.costs>=config.thresh_n);
         label = sampler.costs(train_mask,1)<config.thresh_p;
         costs = sampler.costs(train_mask);
         fuzzy_weight = ones(size(label));
 %         fuzzy_weight(~label) = 2*costs(~label)-1;
-tic
+% tic
         initSvmTracker(sampler.patterns_dt(train_mask,:), label, fuzzy_weight);
-toc
+% toc
         figure(1);
         imshow(I_orig);
         rectangle('position',svm_tracker.output,'LineWidth',2,'EdgeColor','b')
@@ -160,11 +135,11 @@ toc
         
         
         
-        if ~config.tracking_failure
+        if true
             if mod(frame_id-start_frame+1,svm_tracker.expert_update_interval) == 0
                 updateTrackerExperts;
             end
-            evaluateExperts(BC,1);
+            evaluateExperts(BC,100);
             
             BC = svmTrackerUpDownSampling(BC,F);
             
@@ -176,21 +151,10 @@ toc
 %                 rectangle('position',[px,py,1,1],'LineWidth',1,'EdgeColor','r')
 %             end 
 
-        else
-            BC = exhausiveSearch(I_crop,[1]);% could evoke a exhausive search
-            
-            %test to see if tracking is recovered
-            if ~config.tracking_failure
-%                 config.tracking_failure = false;
-                svm_tracker.state = 0;
-            else
-                svm_tracker.output = old_output;
-                svm_tracker.scale = old_scale;
-            end
         end
         
         figure(1)
-        if svm_tracker.state == 0 && ~config.tracking_failure
+        if svm_tracker.state == 0 
             text(0,-5,num2str(svm_tracker.confidence_exp));
             text(0,-20,num2str(svm_tracker.confidence));
             rectangle('position',svm_tracker.output_exp*svm_tracker.scale,'LineWidth',2,'EdgeColor','g')
@@ -215,8 +179,8 @@ toc
 
         
         
-tic
-        if (frame_id - start_frame < 10 && svm_tracker.confidence >-1) ||...
+% tic
+        if (frame_id - start_frame < 25 && svm_tracker.confidence >-1) ||...
                 (svm_tracker.confidence_exp ~= svm_tracker.confidence && svm_tracker.confidence_exp > 0) ||...
                 (svm_tracker.confidence_exp == svm_tracker.confidence && svm_tracker.confidence_exp > -0.5)
             resample(BC);        
@@ -228,7 +192,7 @@ tic
                 score_ = -(sampler.patterns_dt(train_mask,:)*svm_tracker.w'+svm_tracker.Bias);
                 if prod(double(score_(label) > 1)) == 1 && prod(double(score_(~label)<1)) == 1
                     skip_train = true;
-                    disp('skipped training!!!!!!!!!!!!!!!!')
+%                     disp('skipped training!!!!!!!!!!!!!!!!')
                 end
             end
             
@@ -252,7 +216,7 @@ tic
 %                 end
 %             end 
         end
-toc
+% toc
     end
     
     drawnow

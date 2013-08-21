@@ -2,6 +2,7 @@ function initSvmTracker (sample,label,fuzzy_weight)
 % svm_tracker.feat_w = feat_w;
 global config
 global svm_tracker;
+global sampler;
 
 switch svm_tracker.solver
     case 0 % matlab built-in
@@ -121,6 +122,11 @@ switch svm_tracker.solver
         svm_tracker.experts{1}.w = svm_tracker.w;
         svm_tracker.experts{1}.Bias = svm_tracker.Bias;
         svm_tracker.experts{1}.score = [];
+        
+        svm_tracker.experts{2} = svm_tracker.experts{1};
+        svm_tracker.experts{3} = svm_tracker.experts{1};
+        
+        svm_tracker.template = sampler.template;
         
 %         svm_tracker.experts{2}.w = svm_tracker.w;
 %         svm_tracker.experts{2}.Bias = svm_tracker.Bias;
