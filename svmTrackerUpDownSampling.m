@@ -5,10 +5,10 @@ global svm_tracker
 global config
 
 
-updateSample(I_vf,I,500,1,1);
+updateSample(I_vf,I,500,1.2,1);
 
 
-if config.scale_change && svm_tracker.confidence > 0.0 &&...
+if config.scale_change && svm_tracker.confidence > 0 &&...
         svm_tracker.confidence == svm_tracker.confidence_exp%%%%%%%%%%%%%
     
     confidence_orig = svm_tracker.confidence;
@@ -52,7 +52,7 @@ if config.scale_change && svm_tracker.confidence > 0.0 &&...
 % end
 
     if confidence_up > confidence_down && ...
-            (confidence_up > confidence_orig + 0.3 && confidence_up > 0.0)%%%%%
+            (confidence_up > confidence_orig + 0.5 && confidence_up > 0.0)%%%%%
         svm_tracker.confidence = confidence_up;
         svm_tracker.output = output_up;
         if svm_tracker.state == 1
@@ -62,7 +62,7 @@ if config.scale_change && svm_tracker.confidence > 0.0 &&...
         sampler.roi = roi_up;
         I_vf = I_vf_up;
     elseif ~( confidence_down > confidence_up && ...
-            confidence_down >confidence_orig + 0.3 && confidence_down > 0.0)
+            confidence_down >confidence_orig + 0.5 && confidence_down > 0.0)
         svm_tracker.confidence = confidence_orig;
         svm_tracker.output = output_orig;
         if svm_tracker.state == 1

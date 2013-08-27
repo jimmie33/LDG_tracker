@@ -1,8 +1,14 @@
 function updateTrackerExperts
+global config
 global svm_tracker
+global experts
 
-if numel(svm_tracker.experts) < svm_tracker.max_expert_sz
-    svm_tracker.experts{end+1} = svm_tracker.experts{end};
+if numel(experts) < config.max_expert_sz
+    svm_tracker.update_count = 0;
+    experts{end}.snapshot = svm_tracker;
+    experts{end+1} = experts{end};
 else
-    svm_tracker.experts(1:end-1) = svm_tracker.experts(2:end);
+    svm_tracker.update_count = 0;
+    experts{end}.snapshot = svm_tracker;
+    experts(1:end-1) = experts(2:end);
 end

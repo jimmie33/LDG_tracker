@@ -27,7 +27,7 @@ sampler.hash_table = sparse(8,2^24);
 sampler.mask = ~getEllipseMask(sampler.template_size);
 
 %% for collecting initial training data
-resample(I_vf,[1 1]);
+resample(I_vf,[1,1]);
 
 
 

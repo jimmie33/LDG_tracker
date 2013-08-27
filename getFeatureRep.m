@@ -37,7 +37,7 @@ else
         feat = zeros([size(I(:,:,1)),4*config.fd]);
     end
     for i = 1:numel(F)
-        feat(:,:,(i-1)*fd+1:i*fd) = bsxfun(@gt,repmatls(F{i},[1 1 fd]), reshape(config.thr,1,1,[]));
+        feat(:,:,(i-1)*fd+1:i*fd) = bsxfun(@gt,repmat(F{i},[1 1 fd]), reshape(config.thr,1,1,[]));
     end    
 end
 

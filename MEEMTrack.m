@@ -20,12 +20,15 @@ end
 % declare global variables
 global sampler;
 global svm_tracker;
+global experts;
 global config
 global finish % flag for determination by keystroke
 
+config.display = true;
 sampler = createSampler();
 svm_tracker = createSvmTracker();
 finish = 0; 
+experts = {};
 
 % record_vid = false;
 % if record_vid
@@ -46,12 +49,18 @@ result.type = 'rect';
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %    main loop
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
+output = zeros(1,4);
+% config.svm_thresh = -0.8;
 for frame_id = start_frame:end_frame
     
     if finish == 1
         break;
+    end
+    
+    if ~config.display
+        clc
+        display(input);
+        display(['frame: ',num2str(frame_id),'/',num2str(end_frame)]);
     end
     
     %% read a frame
@@ -59,28 +68,35 @@ for frame_id = start_frame:end_frame
     
     %% intialization
     if frame_id==start_frame
-        figure(1)
-        imshow(I_orig);
+        
         % crop to get the initial window
         if isequal(init_rect,-ones(1,4))
+            assert(config.display)
+            figure(1)
+            imshow(I_orig);
             [InitPatch init_rect]=imcrop(I_orig);
         end
         init_rect = round(init_rect);
-
+        output = init_rect;
         config = makeConfig(I_orig,init_rect);
         svm_tracker.output = init_rect*config.image_scale;
         svm_tracker.output(1:2) = svm_tracker.output(1:2) + config.padding;
         svm_tracker.output_exp = svm_tracker.output;
+        
+        if config.display && ~isequal(init_rect,-ones(1,4))
+            figure(1)
+            imshow(I_orig);
+        end
     end
         
     %% compute ROI and scale image
     [I_orig]= getFrame2Compute(I_orig);
-    I_scale = cv.resize(I_orig,1/svm_tracker.scale);
+    I_scale = imresize(I_orig,1/svm_tracker.scale);
     
     %% crop frame
     if frame_id == start_frame
-        sampler.roi = rsz_rt(svm_tracker.output,size(I_scale),2);
-    elseif svm_tracker.confidence > 0
+        sampler.roi = rsz_rt(svm_tracker.output,size(I_scale),config.search_roi);
+    elseif svm_tracker.confidence > config.svm_thresh
         sampler.roi = rsz_rt(svm_tracker.output,size(I_scale),config.search_roi);
     else % use the same roi
 %         roi = rsz_rt(svm_tracker.output,size(I_scale),5*config.search_roi);
@@ -101,58 +117,71 @@ for frame_id = start_frame:end_frame
         fuzzy_weight = ones(size(label));
         initSvmTracker(sampler.patterns_dt(train_mask,:), label, fuzzy_weight);
         
-        figure(1);
-        imshow(I_orig);
-        rectangle('position',svm_tracker.output,'LineWidth',2,'EdgeColor','b')
+        if config.display
+            figure(1);
+            imshow(I_orig);
+            rectangle('position',svm_tracker.output,'LineWidth',2,'EdgeColor','b')
+        end
     else
         % testing
-       
-        figure(1)
-        imshow(I_orig);       
-        roi_reg = sampler.roi; roi_reg(3:4) = sampler.roi(3:4)-sampler.roi(1:2);
-        roi_reg = roi_reg*svm_tracker.scale;
-        rectangle('position',roi_reg,'LineWidth',1,'EdgeColor','r');
-        
-        if true
-%             if mod(frame_id-start_frame+1,svm_tracker.expert_update_interval) == 0
-%                 updateTrackerExperts;
-%             end
-            
-            % evaluate experts
-            evaluateExperts(BC,config.expert_lambda);
-            
-            % try different scales and refine tracking position
-            BC = svmTrackerUpDownSampling(BC,F);
-            
-            % visualize sampling positions
-%             pos_train = sampler.state_dt;
-%             for k = 1:size(pos_train,1)
-%                 px = pos_train(k,1)+0.5*pos_train(k,3);
-%                 py = pos_train(k,2)+0.5*pos_train(k,4);
-%                 rectangle('position',[px,py,1,1],'LineWidth',1,'EdgeColor','r')
-%             end 
-
+        if config.display
+            figure(1)
+            imshow(I_orig);       
+            roi_reg = sampler.roi; roi_reg(3:4) = sampler.roi(3:4)-sampler.roi(1:2);
+            roi_reg = roi_reg*svm_tracker.scale;
+            rectangle('position',roi_reg,'LineWidth',1,'EdgeColor','r');
         end
-        
-        figure(1)
-        if svm_tracker.state == 0 
-            text(0,-5,num2str(svm_tracker.confidence_exp));
-            text(0,-20,num2str(svm_tracker.confidence));
+        if svm_tracker.update_count >= config.update_count_thresh
+            updateTrackerExperts;
+        end
             
-            if svm_tracker.confidence_exp > 0
-                rectangle('position',svm_tracker.output_exp*svm_tracker.scale,'LineWidth',2,'EdgeColor','g')
+        % evaluate experts
+        evaluateExperts(BC,config.expert_lambda,10);
+            
+        % try different scales and refine tracking position
+        BC = svmTrackerUpDownSampling(BC,F);
+        if svm_tracker.confidence > config.svm_thresh
+            output = svm_tracker.output*svm_tracker.scale;
+        end
+        % visualize sampling positions
+%         pos_train = sampler.state_dt;
+%         for k = 1:size(pos_train,1)
+%             px = pos_train(k,1)+0.5*pos_train(k,3);
+%             py = pos_train(k,2)+0.5*pos_train(k,4);
+%             rectangle('position',[px,py,1,1],'LineWidth',1,'EdgeColor','r')
+%         end 
+        
+        
+        if config.display
+            figure(1)
+            text(0,5,num2str(svm_tracker.confidence_exp),'BackgroundColor',[1 1 1]);
+            text(0,20,num2str(svm_tracker.confidence),'BackgroundColor',[1 1 1]);
+            
+%             if svm_tracker.confidence_exp > -0.5
+            rectangle('position',output,'LineWidth',2,'EdgeColor','g')
+            rectangle('position',svm_tracker.output_exp*svm_tracker.scale,'LineWidth',2,'EdgeColor','r')
+%             else
+%                 rectangle('position',svm_tracker.output_exp*svm_tracker.scale,'LineWidth',2,'EdgeColor','k')
+%             end
+            if svm_tracker.best_expert_idx ~= numel(experts)
+                rectangle('position',svm_tracker.output*svm_tracker.scale,'LineWidth',2,'EdgeColor','y')   
+            else
+                rectangle('position',svm_tracker.output*svm_tracker.scale,'LineWidth',2,'EdgeColor','b')
             end
-            rectangle('position',svm_tracker.output*svm_tracker.scale,'LineWidth',2,'EdgeColor','r')           
         end
         
  
         %% update svm classifier
         svm_tracker.temp_count = svm_tracker.temp_count + 1;
+        
+%         if svm_tracker.confidence_exp < 0
+%             svm_tracker.confidenc_exp = svm_tracker.confidence;
+%             svm_tracker.output_exp = svm_tracker.output;
+%             svm_tracker.best_expert_idx = numel(svm_tracker.experts);
+%         end
 
-        if (frame_id - start_frame < 3 && svm_tracker.confidence >-1) ||...
-                (svm_tracker.confidence_exp ~= svm_tracker.confidence && svm_tracker.confidence_exp > 0) ||...
-                ( svm_tracker.confidence_exp > -1)
-            svm_tracker.template = 0.95*svm_tracker.template + 0.05*svm_tracker.output_feat;
+        if svm_tracker.confidence > config.svm_thresh %&& ~svm_tracker.failure
+%             svm_tracker.template = 0.95*svm_tracker.template + 0.05*svm_tracker.output_feat;
             resample(BC);        
             train_mask = (sampler.costs<config.thresh_p) | (sampler.costs>=config.thresh_n);
             label = sampler.costs(train_mask) < config.thresh_p;
@@ -184,16 +213,18 @@ for frame_id = start_frame:end_frame
 %                     rectangle('position',[px,py,1,1],'LineWidth',1,'EdgeColor','r')
 %                 end
 %             end 
+        else % clear update_count
+            svm_tracker.update_count = 0;
         end
 % toc
     end
-%     if frame_id> 315
+%     if frame_id> 1
 %         pause
 %     end
-    
+%     display('---------------------')
     
     timer = timer + toc;
-    res = svm_tracker.output*svm_tracker.scale;
+    res = output;%svm_tracker.output*svm_tracker.scale;
     res(1:2) = res(1:2) - config.padding;
     result.res(frame_id-start_frame+1,:) = res/config.image_scale;
 %    toc

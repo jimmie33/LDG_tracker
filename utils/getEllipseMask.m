@@ -10,5 +10,5 @@ mask = zeros(sz,sz);
 mask(sub2ind(size(mask),x(d),y(d))) = 1;
 mask = imresize(mask,mask_sz(1:2), 'nearest') > 0;
 if numel(mask_sz) > 2
-    mask = repmatls(mask,[1 1 mask_sz(3)]);
+    mask = repmat(mask,[1 1 mask_sz(3)]);
 end

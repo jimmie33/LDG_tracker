@@ -1,6 +1,7 @@
 function updateSvmTracker(sample,label,fuzzy_weight)
 global config;
 global svm_tracker;
+global experts;
 % svm_tracker.feat_w = feat_w;
 
 switch svm_tracker.solver
@@ -153,14 +154,8 @@ switch svm_tracker.solver
                 'boxconstraint',C,'autoscale','false','options',statset('MaxIter',5000));
         end
         %**************************
-        if ~isempty(svm_tracker.w)
-            s_rate = svm_tracker.w_smooth_rate;
-            svm_tracker.w = s_rate*svm_tracker.w + (1-s_rate)*svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors*svm_tracker.struct_mat;
-            svm_tracker.Bias = s_rate*svm_tracker.Bias + (1-s_rate)*svm_tracker.clsf.Bias;
-        else
-            svm_tracker.w = svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors*svm_tracker.struct_mat;
-            svm_tracker.Bias = svm_tracker.clsf.Bias;
-        end
+        svm_tracker.w = svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors;
+        svm_tracker.Bias = svm_tracker.clsf.Bias;
         svm_tracker.clsf.w = svm_tracker.w;
         % get the idx of new svs
         sv_idx = svm_tracker.clsf.SupportVectorIndices;
@@ -298,8 +293,13 @@ switch svm_tracker.solver
         end
         
         % update experts
-        svm_tracker.experts{end}.w = svm_tracker.w;
-        svm_tracker.experts{end}.Bias = svm_tracker.Bias;
+        experts{end}.w = svm_tracker.w;
+        experts{end}.Bias = svm_tracker.Bias;
+        
+        svm_tracker.update_count = svm_tracker.update_count + 1;
+%         if svm_tracker.best_expert_idx ~= numel(experts)
+%             experts{svm_tracker.best_expert_idx}.snapshot = svm_tracker;
+%         end
      
 end
 

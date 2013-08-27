@@ -37,12 +37,18 @@ pixel_step = ceil(sqrt(win_area/template_max_numel));
 config.pixel_step = max(pixel_step,min_pixel_step);
 %% default setting up
 
+config.debug = false;
 config.verbose = false;
-config.show_result = true; % show tracking result at runtime
+config.display = true; % show tracking result at runtime
 config.scale_change = false;
 config.use_experts = true;
 config.use_raw_feat = false; % raw intensity feature value
 config.use_iif = true; % use illumination invariant feature
+
+config.svm_thresh = -0.5; % for detecting the tracking failure
+config.max_expert_sz = 4;
+config.update_count_thresh = 10;
+config.entropy_score_winsize = 3;
 
 config.search_roi = 2.4; % ratio of the search roi to tracking window
 config.padding = 40; % for object out of border
@@ -58,6 +64,6 @@ config.ellipse_mask = false; %mask the template with an ellipse;
 config.expert_lambda = 1;
 
 config.scale_step = 1.2;
-config.scale_upbound = 2;
-config.scale_lowbound = 0.5;
+config.scale_upbound = 1.5;
+config.scale_lowbound = 0.7;
 

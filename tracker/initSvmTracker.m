@@ -2,6 +2,7 @@ function initSvmTracker (sample,label,fuzzy_weight)
 % svm_tracker.feat_w = feat_w;
 global config
 global svm_tracker;
+global experts;
 global sampler;
 
 switch svm_tracker.solver
@@ -92,7 +93,7 @@ switch svm_tracker.solver
         
         svm_tracker.clsf = svmtrain( sample, label,'boxconstraint',C,'autoscale','false');
         
-        svm_tracker.struct_mat = eye(size(sample,2));
+%         svm_tracker.struct_mat = eye(size(sample,2));
        
         svm_tracker.clsf.w = svm_tracker.clsf.Alpha'*svm_tracker.clsf.SupportVectors;
         svm_tracker.w = svm_tracker.clsf.w;
@@ -119,29 +120,10 @@ switch svm_tracker.solver
         svm_tracker.neg_dis = squareform(pdist(svm_tracker.neg_sv)); 
         
         %% intialize tracker experts
-        svm_tracker.experts{1}.w = svm_tracker.w;
-        svm_tracker.experts{1}.Bias = svm_tracker.Bias;
-        svm_tracker.experts{1}.score = [];
+        experts{1}.w = svm_tracker.w;
+        experts{1}.Bias = svm_tracker.Bias;
+        experts{1}.score = [];
+        experts{1}.snapshot = svm_tracker;
         
-        svm_tracker.experts{2} = svm_tracker.experts{1};
-        svm_tracker.experts{3} = svm_tracker.experts{1};
-        
-        svm_tracker.template = sampler.template;
-        
-%         svm_tracker.experts{2}.w = svm_tracker.w;
-%         svm_tracker.experts{2}.Bias = svm_tracker.Bias;
-%         svm_tracker.experts{2}.score = [];
-%         
-%         svm_tracker.experts{3}.w = svm_tracker.w;
-%         svm_tracker.experts{3}.Bias = svm_tracker.Bias;
-%         svm_tracker.experts{3}.score = [];
-        
-        % structral information
-%         svm_tracker.pos_corr = zeros(size(svm_tracker.pos_sv,2),size(svm_tracker.pos_sv,2),...
-%             size(svm_tracker.pos_sv,1));
-%         for k = 1:size(svm_tracker.pos_sv,1)
-%             svm_tracker.pos_corr(:,:,k) = svm_tracker.pos_sv(k,:)'*svm_tracker.pos_sv(k,:);
-%         end
-%         svm_tracker.pos_ms = svm_tracker.pos_corr;
-        
+        experts{2} = experts{1};
 end
