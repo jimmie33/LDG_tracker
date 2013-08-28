@@ -1,4 +1,4 @@
-function [feat F] = getFeatureRep(I,nbin,pixel_step)
+function [feat F] = getFeatureRep(I,nbin)
 % compute feature representation: mxnxd, d is the feature dimension
 % decay factor and nbin is for the local histogram computation
 %
@@ -18,7 +18,10 @@ fd = config.fd;
 % hist_mtx1 = LSH(I(:,:,1)*255, config.pixel_step*4+1, nbin);%local histogram 0.033
 
 % F{1} = IIF(I(:,:,1)*255, hist_mtx1, k, nbin);%semi-affine invariant feature
-ksize = config.pixel_step*4+1;
+ksize = (1/config.ratio)*4;
+if mod(ksize,2) == 0
+    ksize = ksize + 1;
+end
 F{1} = 255-cv.calcIIF(I(:,:,1),[ksize ksize],nbin);%IIF2(I(:,:,1)*255, hist_mtx1, nbin);%feature by pixel ordering
 F{2} = I(:,:,1);%gray image
 if config.use_color
@@ -41,8 +44,6 @@ else
     end    
 end
 
-% feat = imfilter(feat,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
 F = double(reshape(cell2mat(F),size(F{1},1),size(F{1},2),[]));
-% F = imfilter(F,fspecial('gaussian',[9 9],0.5*pixel_step),'same','replicate');
-% feat = cv.GaussianBlur_t(feat,'KSize',[ksize ksize],'SigmaX',0.5*pixel_step);
+
 

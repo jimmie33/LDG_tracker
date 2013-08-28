@@ -1,66 +1,66 @@
-function evaluateExperts(I_vf,lambda,sigma)
+function expertsDo(I_vf,lambda,sigma)
 global sampler;
 global svm_tracker;
 global experts;
-global config;
+global config
 
-feature_map = imresize(I_vf,1/config.pixel_step,'nearest');
-step_size = [1,1];%max(round(sampler.template_size(1:2)/10),1);
+roi_reg = sampler.roi; roi_reg(3:4) = sampler.roi(3:4)-sampler.roi(1:2);
 
-if size(I_vf,3)>1
-    patterns_dt = im2colstep(feature_map,sampler.template_size,[step_size, size(I_vf,3)]);
-else
-    patterns_dt = im2colstep(feature_map,sampler.template_size,step_size);
-end
+feature_map = imresize(I_vf,config.ratio,'nearest'); % 
+ratio_x = size(I_vf,2)/size(feature_map,2);
+ratio_y = size(I_vf,1)/size(feature_map,1);
+% tmp_mask = zeros(sampler.template_size(1:2));
+% tmp_mask(1:2:end,1:2:end) = 1;
+% tmp_mask = repmat(tmp_mask,[1,1,size(I_vf,3)]);
+patterns = im2colstep(feature_map,[sampler.template_size(1:2), size(I_vf,3)],[1, 1, size(I_vf,3)]);
+% patterns = patterns(tmp_mask(:)>0,:); % columnwise
 
-rects = repmat(svm_tracker.output,[size(patterns_dt,2),1]);
+x_sz = size(feature_map,2)-sampler.template_size(2)+1;
+y_sz = size(feature_map,1)-sampler.template_size(1)+1;
+[X Y] = meshgrid(1:x_sz,1:y_sz);
+temp = repmat(svm_tracker.output,[numel(X),1]);
+temp(:,1) = (X(:)-1)*ratio_x + sampler.roi(1);
+temp(:,2) = (Y(:)-1)*ratio_y + sampler.roi(2);
+state = temp;
 
-x = 1:step_size(2):size(feature_map,2)-sampler.template_size(2)+1;
-y = 1:step_size(1):size(feature_map,1)-sampler.template_size(1)+1;
-[X Y] = meshgrid(x,y);
-rects(1:end,1) = (X(:)-1)*config.pixel_step + sampler.roi(1);
-rects(1:end,2) = (Y(:)-1)*config.pixel_step + sampler.roi(2);
+%% select expert
 
+label_prior = fspecial('gaussian',[y_sz,x_sz],sigma);
 
-label_prior = fspecial('gaussian',[numel(y),numel(x)],sigma);
-
-
-
-%% compute log likelihood and entropy
+% compute log likelihood and entropy
 n = numel(experts);
 score_temp = zeros(n,1);
 rect_temp = zeros(n,4);
-% figure(4)
-% 
+
 if config.debug
     loglik_vec=[];
     ent_vec=[];
     figure(3)
 end
 
-kernel_size = sampler.template_size(1:2);%half template size;
+kernel_size = sampler.template_size(1:2)*2;%half template size;
 
-% svm_tracker.experts{2}.w = 0.99*svm_tracker.experts{2}.w + 0.01*svm_tracker.experts{3}.w;
-% svm_tracker.experts{2}.Bias = 0.99*svm_tracker.experts{2}.Bias + 0.01*svm_tracker.experts{3}.Bias;
-mask_temp = zeros(numel(y),numel(x));
+mask_temp = zeros(y_sz,x_sz);
 idx_temp = [];
 svm_scores = [];
 svm_score = {};
 for i = 1:n
-    svm_score{i} = -(experts{i}.w*patterns_dt+experts{i}.Bias);
-    [val idx] = max(svm_score{i}.*label_prior(:)');
-    best_rect = rects(idx,:);
+    svm_score{i} = -(experts{i}.w*patterns+experts{i}.Bias);
+    [val idx] = max(normcdf(svm_score{i},0,1).*label_prior(:)');
+    best_rect = state(idx,:);
     rect_temp(i,:) = best_rect;
-    svm_scores(i) = val;
+    svm_scores(i) = svm_score{i}(idx);
     idx_temp(i) = idx;
     [r c] = ind2sub(size(mask_temp),idx);
     mask_temp(r,c) = 1;
 end
+% merg peaks
 perturb = (1:numel(mask_temp))/(numel(mask_temp)*100000);
 mask_temp_blur = imfilter(mask_temp+reshape(perturb,size(mask_temp,1),[]),fspecial('gaussian',round(kernel_size)));
-mask_temp = mask_temp_blur == imdilate(mask_temp_blur,strel('rectangle',round(kernel_size*0.5)));
+mask_temp = mask_temp_blur == imdilate(mask_temp_blur,strel('rectangle',round(kernel_size*0.3)));
 mask_temp = mask_temp & mask_temp_blur > 1/100000;
 mask_temp = mask_temp > 0;
+% get entropy scores
 for i = 1:n
     mask = mask_temp(:);
     [loglik ent] = getLogLikelihoodEntropy(svm_score{i}(mask(:)),label_prior(mask(:)));
@@ -68,7 +68,7 @@ for i = 1:n
         loglik_vec(end+1) = loglik;
         ent_vec(end+1) = ent;
         subplot(2,3,i)    
-        imagesc(reshape(svm_score{i},numel(y),[]));
+        imagesc(reshape(svm_score{i},y_sz,[]));
         colorbar
     end
     
@@ -76,25 +76,25 @@ for i = 1:n
     score_temp(i) = sum(experts{i}.score(max(end+1-config.entropy_score_winsize,1):end));    
 end
 
-% [val idx] = max(score_temp);
-% svm_tracker.failure = false;
 svm_tracker.best_expert_idx = numel(score_temp);
 if numel(score_temp) >= 2 && config.use_experts
     [val idx] = max(score_temp(1:end-1));
-%     if score_temp(idx) > score_temp(end) && svm_scores(idx) < 0
-%         svm_tracker.failure = true;
-%     end
     if score_temp(idx) > score_temp(end) && svm_scores(idx) > config.svm_thresh
         % recover previous version
-        output = svm_tracker.output;
+%         output = svm_tracker.output;
 %         experts{end}.snapshot = svm_tracker;
         experts{end}.score = experts{idx}.score;
         svm_tracker = experts{idx}.snapshot;
-        svm_tracker.output = rect_temp(idx,:);
+%         svm_tracker.output = rect_temp(idx,:);
         svm_tracker.best_expert_idx = idx;
 %         experts([idx end]) = experts([end idx]);
     end
 end
+svm_tracker.output = rect_temp(svm_tracker.best_expert_idx,:);
+svm_tracker.confidence = svm_scores(svm_tracker.best_expert_idx);
+svm_tracker.output_exp = rect_temp(end,:);
+svm_tracker.confidence_exp = svm_scores(end);
+
 % svm_tracker.w = experts{svm_tracker.best_expert_idx}.w;
 % svm_tracker.Bias = experts{svm_tracker.best_expert_idx}.Bias;
 
@@ -113,14 +113,20 @@ if config.debug
         text(0,3,num2str(loglik_vec(i)),'BackgroundColor',color);
         text(15,3,num2str(ent_vec(i)),'BackgroundColor',color);
     end
-%     subplot(2,3,6)
-%     imagesc(mask_temp)
+    subplot(2,3,6)
+    imagesc(mask_temp)
     figure(1)
 end
-% pause
 
-% if svm_scores(svm_tracker.best_expert_idx)>0
-%     svm_tracker.output = rect_temp(svm_tracker.best_expert_idx,:);
-% end
 
+%% update training sample
+% approximately 200 training samples
+step = round(sqrt((y_sz*x_sz)/120));
+mask_temp = zeros(y_sz,x_sz);
+mask_temp(1:step:end,1:step:end) = 1;
+mask_temp = mask_temp > 0;
+sampler.patterns_dt = patterns(:,mask_temp(:))';
+sampler.state_dt = state(mask_temp(:),:);
+
+sampler.costs = 1 - getIOU(sampler.state_dt,svm_tracker.output);
 

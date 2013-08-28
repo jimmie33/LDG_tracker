@@ -30,13 +30,13 @@ root_dir = '../tracker_benchmark_v1.0';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-output_dir = './output/ope_meem_new';
+output_dir = './output/ope_meem';
 if ~exist(output_dir)
     mkdir(output_dir)
 end
 load('task.mat');
 % h = waitbar(0,'run benchmark ope');
-for i = 1:numel(task)
+for i = 17%1:numel(task)
     input_dir = strrep(fullfile(task{i}.data_dir,'img'),'\','/');
     if ~exist(input_dir,'dir')
         warning([input_dir, ' does not exist'])
@@ -44,7 +44,7 @@ for i = 1:numel(task)
     end
     ext = task{i}.ext;
     results = {};
-    name = [task{i}.data_name, '_MEEM_new.mat'];
+    name = [task{i}.data_name, '_MEEM.mat'];
     for j = 1:1 %numel(task{i}.run)
         start_frame = task{i}.run{j}.startFrame;
         init_rect = task{i}.run{j}.initRect;

@@ -5,7 +5,7 @@ global svm_tracker
 global config
 
 
-updateSample(I_vf,I,500,1.2,1);
+updateSample(I_vf,I,20,0.05,1);
 
 
 if config.scale_change && svm_tracker.confidence > 0 &&...
