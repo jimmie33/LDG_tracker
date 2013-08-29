@@ -36,7 +36,7 @@ if ~exist(output_dir)
 end
 load('task.mat');
 % h = waitbar(0,'run benchmark ope');
-for i = 17%1:numel(task)
+for i = 51%1:numel(task)
     input_dir = strrep(fullfile(task{i}.data_dir,'img'),'\','/');
     if ~exist(input_dir,'dir')
         warning([input_dir, ' does not exist'])

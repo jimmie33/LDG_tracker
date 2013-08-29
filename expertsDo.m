@@ -38,12 +38,14 @@ if config.debug
     figure(3)
 end
 
-kernel_size = sampler.template_size(1:2)*2;%half template size;
+kernel_size = sampler.template_size(1:2)*0.5;%half template size;
+rad = 0.5*min(sampler.template_size(1:2));
 
 mask_temp = zeros(y_sz,x_sz);
 idx_temp = [];
 svm_scores = [];
 svm_score = {};
+peaks = zeros(n,2);
 for i = 1:n
     svm_score{i} = -(experts{i}.w*patterns+experts{i}.Bias);
     [val idx] = max(normcdf(svm_score{i},0,1).*label_prior(:)');
@@ -52,17 +54,36 @@ for i = 1:n
     svm_scores(i) = svm_score{i}(idx);
     idx_temp(i) = idx;
     [r c] = ind2sub(size(mask_temp),idx);
-    mask_temp(r,c) = 1;
+    peaks(i,:) = [r c];
+%     mask_temp(r,c) = 1;
 end
+peaks_orig = peaks;
 % merg peaks
-perturb = (1:numel(mask_temp))/(numel(mask_temp)*100000);
-mask_temp_blur = imfilter(mask_temp+reshape(perturb,size(mask_temp,1),[]),fspecial('gaussian',round(kernel_size)));
-mask_temp = mask_temp_blur == imdilate(mask_temp_blur,strel('rectangle',round(kernel_size*0.3)));
-mask_temp = mask_temp & mask_temp_blur > 1/100000;
-mask_temp = mask_temp > 0;
+dis_mat = pdist2(peaks,peaks) + diag(inf*ones(size(peaks,1),1));
+while min(dis_mat(:)) < rad && size(peaks,1) > 1
+    [val idx] = min(dis_mat(:));
+    [id1 id2] = ind2sub(size(dis_mat),idx);
+    merged_peak = 0.5*(peaks(id1,:) + peaks(id2,:));
+    peaks([id1 id2],:) = [];
+    peaks = [peaks;merged_peak];
+    dis_mat = pdist2(peaks,peaks) + diag(inf*ones(size(peaks,1),1));
+end
+mask_temp(sub2ind(size(mask_temp),round(peaks(:,1)),round(peaks(:,2)))) = 1;
+
+% perturb = (1:numel(mask_temp))/(numel(mask_temp)*100000);
+% mask_temp_blur = imfilter(mask_temp+reshape(perturb,size(mask_temp,1),[]),fspecial('gaussian',round(kernel_size)));
+% mask_temp = mask_temp_blur == imdilate(mask_temp_blur,strel('rectangle',round(kernel_size*0.5)));
+% mask_temp = mask_temp & mask_temp_blur > 1/100000;
+% mask_temp = mask_temp > 0;
 % get entropy scores
 for i = 1:n
-    mask = mask_temp(:);
+    dis = pdist2(peaks,peaks_orig(i,:));
+    [val idx] = min(dis);
+    peaks_temp = peaks;
+    peaks_temp(idx,:) = peaks_orig(i,:);
+    mask = zeros(size(mask_temp));
+    mask(sub2ind(size(mask_temp),round(peaks_temp(:,1)),round(peaks_temp(:,2)))) = 1;
+    mask = mask>0;
     [loglik ent] = getLogLikelihoodEntropy(svm_score{i}(mask(:)),label_prior(mask(:)));
     if config.debug
         loglik_vec(end+1) = loglik;
@@ -79,7 +100,7 @@ end
 svm_tracker.best_expert_idx = numel(score_temp);
 if numel(score_temp) >= 2 && config.use_experts
     [val idx] = max(score_temp(1:end-1));
-    if score_temp(idx) > score_temp(end) && svm_scores(idx) > config.svm_thresh
+    if score_temp(idx) > score_temp(end) && size(peaks,1) > 1%svm_scores(idx) > config.svm_thresh
         % recover previous version
 %         output = svm_tracker.output;
 %         experts{end}.snapshot = svm_tracker;

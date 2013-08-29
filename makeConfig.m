@@ -54,8 +54,8 @@ config.svm_thresh = -0.7; % for detecting the tracking failure
 config.max_expert_sz = 4;
 config.expert_update_interval = 50;
 config.update_count_thresh = 10;
-config.entropy_score_winsize = 5;
-config.expert_lambda = 1;
+config.entropy_score_winsize = 3;
+config.expert_lambda = 10;
 
 config.search_roi = 2; % ratio of the search roi to tracking window 1.3
 config.padding = 40; % for object out of border
