@@ -8,7 +8,8 @@ if nargin < 2
 end
 
 feature_map = imresize(I_vf,config.ratio,'nearest');
-% step_size = max(round(sampler.template_size(1:2)/4),1);
+step_size = max(round(min(sampler.template_size(1:2))/4),1);
+step_size = step_size([1 1]);
 % if svm_tracker.confidence == svm_tracker.confidence_exp || svm_tracker.confidence_exp <= 0
 %     rect = svm_tracker.output;
 % else

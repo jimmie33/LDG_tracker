@@ -45,29 +45,39 @@ mask_temp = zeros(y_sz,x_sz);
 idx_temp = [];
 svm_scores = [];
 svm_score = {};
+svm_density = {};
+peaks_collection = {};
 peaks = zeros(n,2);
+peaks_pool = [];
+
+[X Y] = meshgrid(1:round(rad):x_sz,1:round(rad):y_sz);
+
 for i = 1:n
+    % find the highest peak
     svm_score{i} = -(experts{i}.w*patterns+experts{i}.Bias);
-    [val idx] = max(normcdf(svm_score{i},0,1).*label_prior(:)');
+    svm_density{i} = normcdf(svm_score{i},0,1).*label_prior(:)';
+    [val idx] = max(svm_density{i});
     best_rect = state(idx,:);
     rect_temp(i,:) = best_rect;
     svm_scores(i) = svm_score{i}(idx);
     idx_temp(i) = idx;
     [r c] = ind2sub(size(mask_temp),idx);
     peaks(i,:) = [r c];
+    
+    % find the possible peaks
+    
+    density_map = reshape(svm_density{i},y_sz,[]);
+    density_map = (density_map - min(density_map(:)))/(max(density_map(:)) - min(density_map(:)));
+    mm = (imdilate(density_map,strel('square',round(rad))) == density_map) & density_map > 0.9;
+    [rn cn] = ind2sub(size(mask_temp),find(mm));
+    peaks_pool = cat(1,peaks_pool,[rn cn]);  
+    peaks_collection{i} = [rn cn];
 %     mask_temp(r,c) = 1;
 end
 peaks_orig = peaks;
 % merg peaks
-dis_mat = pdist2(peaks,peaks) + diag(inf*ones(size(peaks,1),1));
-while min(dis_mat(:)) < rad && size(peaks,1) > 1
-    [val idx] = min(dis_mat(:));
-    [id1 id2] = ind2sub(size(dis_mat),idx);
-    merged_peak = 0.5*(peaks(id1,:) + peaks(id2,:));
-    peaks([id1 id2],:) = [];
-    peaks = [peaks;merged_peak];
-    dis_mat = pdist2(peaks,peaks) + diag(inf*ones(size(peaks,1),1));
-end
+peaks = mergePeaks(peaks,rad);
+peaks_pool = mergePeaks(peaks_pool,rad);
 mask_temp(sub2ind(size(mask_temp),round(peaks(:,1)),round(peaks(:,2)))) = 1;
 
 % perturb = (1:numel(mask_temp))/(numel(mask_temp)*100000);
@@ -76,11 +86,20 @@ mask_temp(sub2ind(size(mask_temp),round(peaks(:,1)),round(peaks(:,2)))) = 1;
 % mask_temp = mask_temp & mask_temp_blur > 1/100000;
 % mask_temp = mask_temp > 0;
 % get entropy scores
+%%
 for i = 1:n
-    dis = pdist2(peaks,peaks_orig(i,:));
-    [val idx] = min(dis);
-    peaks_temp = peaks;
-    peaks_temp(idx,:) = peaks_orig(i,:);
+%     dis = pdist2([Y(:) X(:)],peaks_orig(i,:));
+%     [val idx] = min(dis);
+%     peaks_temp = [Y(:) X(:)];
+%     peaks_temp(idx,:) = peaks_orig(i,:);
+%     mask = zeros(size(mask_temp));
+%     mask(sub2ind(size(mask_temp),round(peaks_temp(:,1)),round(peaks_temp(:,2)))) = 1;
+%     mask = mask>0;
+    
+    dis = pdist2(peaks_pool,peaks_collection{i});
+    [rr cc] = ind2sub([size(peaks_pool,1),size(peaks_collection{i},1)],find(dis < rad));
+    peaks_temp = peaks_pool;
+    peaks_temp(rr,:) = peaks_collection{i}(cc,:);
     mask = zeros(size(mask_temp));
     mask(sub2ind(size(mask_temp),round(peaks_temp(:,1)),round(peaks_temp(:,2)))) = 1;
     mask = mask>0;
@@ -88,15 +107,18 @@ for i = 1:n
     if config.debug
         loglik_vec(end+1) = loglik;
         ent_vec(end+1) = ent;
-        subplot(2,3,i)    
+        subplot(2,4,i)    
         imagesc(reshape(svm_score{i},y_sz,[]));
         colorbar
+        subplot(2,4,i+4)
+        imagesc(reshape(mask,y_sz,[]))
     end
     
     experts{i}.score(end+1) = loglik - lambda*ent;
     score_temp(i) = sum(experts{i}.score(max(end+1-config.entropy_score_winsize,1):end));    
 end
 
+%%
 svm_tracker.best_expert_idx = numel(score_temp);
 if numel(score_temp) >= 2 && config.use_experts
     [val idx] = max(score_temp(1:end-1));
@@ -123,7 +145,7 @@ svm_tracker.confidence_exp = svm_scores(end);
 if config.debug
 
     for i = 1:n
-        subplot(2,3,i)
+        subplot(2,4,i)
         if i == svm_tracker.best_expert_idx
             color = [1 0 0];
         else
@@ -134,7 +156,7 @@ if config.debug
         text(0,3,num2str(loglik_vec(i)),'BackgroundColor',color);
         text(15,3,num2str(ent_vec(i)),'BackgroundColor',color);
     end
-    subplot(2,3,6)
+    figure(2)
     imagesc(mask_temp)
     figure(1)
 end
@@ -150,4 +172,24 @@ sampler.patterns_dt = patterns(:,mask_temp(:))';
 sampler.state_dt = state(mask_temp(:),:);
 
 sampler.costs = 1 - getIOU(sampler.state_dt,svm_tracker.output);
+
+
+end
+
+
+function merged_peaks = mergePeaks(peaks, rad)
+
+dis_mat = pdist2(peaks,peaks) + diag(inf*ones(size(peaks,1),1));
+while min(dis_mat(:)) < rad && size(peaks,1) > 1
+    [val idx] = min(dis_mat(:));
+    [id1 id2] = ind2sub(size(dis_mat),idx);
+    merged_peak = 0.5*(peaks(id1,:) + peaks(id2,:));
+    peaks([id1 id2],:) = [];
+    peaks = [peaks;merged_peak];
+    dis_mat = pdist2(peaks,peaks) + diag(inf*ones(size(peaks,1),1));
+end
+
+merged_peaks = peaks;
+
+end
 

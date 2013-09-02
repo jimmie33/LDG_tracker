@@ -1,4 +1,4 @@
-function result = MEEMTrack(input, ext, init_rect, start_frame, end_frame)
+function result = MEEMTrack(use_color, use_experts, input, ext, init_rect, start_frame, end_frame)
 
 addpath(genpath('.'));
 addpath('../../mexopencv/mexopencv');
@@ -7,13 +7,13 @@ addpath('../../mexopencv/mexopencv');
 D = dir(fullfile(input,['*.', ext]));
 file_list={D.name};
 
-if nargin < 3
+if nargin < 5
     init_rect = -ones(1,4);
 end
-if nargin < 4
+if nargin < 6
     start_frame = 1;
 end
-if nargin < 5
+if nargin < 7
     end_frame = numel(file_list);
 end
 
@@ -78,7 +78,7 @@ for frame_id = start_frame:end_frame
         end
         init_rect = round(init_rect);
         
-        config = makeConfig(I_orig,init_rect);
+        config = makeConfig(I_orig,init_rect,use_color,use_experts);
         svm_tracker.output = init_rect*config.image_scale;
         svm_tracker.output(1:2) = svm_tracker.output(1:2) + config.padding;
         svm_tracker.output_exp = svm_tracker.output;
@@ -97,9 +97,9 @@ for frame_id = start_frame:end_frame
     
     %% crop frame
     if frame_id == start_frame
-        sampler.roi = rsz_rt(svm_tracker.output,size(I_scale),config.search_roi);
-    elseif svm_tracker.confidence > config.svm_thresh
-        sampler.roi = rsz_rt(svm_tracker.output,size(I_scale),config.search_roi);
+        sampler.roi = rsz_rt(svm_tracker.output,size(I_scale),5*config.search_roi);
+    else%if svm_tracker.confidence > config.svm_thresh
+        sampler.roi = rsz_rt(output,size(I_scale),config.search_roi);
     end
     I_crop = I_scale(round(sampler.roi(2):sampler.roi(4)),round(sampler.roi(1):sampler.roi(3)),:);
     
@@ -141,7 +141,7 @@ for frame_id = start_frame:end_frame
 %         % try different scales and refine tracking position
 %         BC = svmTrackerUpDownSampling(BC,F);
 
-        expertsDo(BC,config.expert_lambda,10);
+        expertsDo(BC,config.expert_lambda,config.label_prior_sigma);
 %         BC = svmTrackerUpDownSampling(BC,F);
         
         if svm_tracker.confidence > config.svm_thresh
@@ -226,7 +226,7 @@ for frame_id = start_frame:end_frame
 %     figure(2)
 %     imshow(F(:,:,1)/255)
     
-%     if frame_id> 315
+%     if frame_id> 50
 %         pause
 %     end
 %     display('---------------------')

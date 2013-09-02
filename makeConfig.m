@@ -1,10 +1,10 @@
-function config = makeConfig(frame,selected_rect)
+function config = makeConfig(frame,selected_rect,use_color,use_experts)
 
 %% automatic setting up
 
 % check if the frame is in RGB format
 config.use_color = false;
-if (size(frame,3) == 3 && ~isequal(frame(:,:,1),frame(:,:,2),frame(:,:,3)))
+if (size(frame,3) == 3 && ~isequal(frame(:,:,1),frame(:,:,2),frame(:,:,3))) && use_color
     config.use_color = true;    
 end
 
@@ -44,18 +44,19 @@ config.template_sz = template_sz([2 1]);
 
 config.debug = false;
 config.verbose = false;
-config.display = true; % show tracking result at runtime
+config.display = false; % show tracking result at runtime
 config.scale_change = false;
-config.use_experts = true;
+config.use_experts = use_experts;
 config.use_raw_feat = false; % raw intensity feature value
 config.use_iif = true; % use illumination invariant feature
 
 config.svm_thresh = -0.7; % for detecting the tracking failure
 config.max_expert_sz = 4;
 config.expert_update_interval = 50;
-config.update_count_thresh = 10;
-config.entropy_score_winsize = 3;
+config.update_count_thresh = 1;
+config.entropy_score_winsize = 5;
 config.expert_lambda = 10;
+config.label_prior_sigma = 15;
 
 config.search_roi = 2; % ratio of the search roi to tracking window 1.3
 config.padding = 40; % for object out of border
