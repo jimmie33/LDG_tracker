@@ -226,7 +226,7 @@ for frame_id = start_frame:end_frame
 %     figure(2)
 %     imshow(F(:,:,1)/255)
     
-%     if frame_id> 50
+%     if frame_id> 315
 %         pause
 %     end
 %     display('---------------------')

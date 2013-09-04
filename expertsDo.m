@@ -26,6 +26,8 @@ state = temp;
 %% select expert
 
 label_prior = fspecial('gaussian',[y_sz,x_sz],sigma);
+label_prior_neg = ones(size(label_prior))/numel(label_prior);
+
 
 % compute log likelihood and entropy
 n = numel(experts);
@@ -98,12 +100,16 @@ for i = 1:n
     
     dis = pdist2(peaks_pool,peaks_collection{i});
     [rr cc] = ind2sub([size(peaks_pool,1),size(peaks_collection{i},1)],find(dis < rad));
+    [C,ia,ic] = unique(cc);
     peaks_temp = peaks_pool;
-    peaks_temp(rr,:) = peaks_collection{i}(cc,:);
+    peaks_temp(rr(ia),:) = peaks_collection{i}(cc(ia),:);
     mask = zeros(size(mask_temp));
     mask(sub2ind(size(mask_temp),round(peaks_temp(:,1)),round(peaks_temp(:,2)))) = 1;
     mask = mask>0;
-    [loglik ent] = getLogLikelihoodEntropy(svm_score{i}(mask(:)),label_prior(mask(:)));
+%     if sum(mask(:)) ~= size(peaks_pool,1)
+%         keyboard
+%     end
+    [loglik ent] = getLogLikelihoodEntropy(svm_score{i}(mask(:)),label_prior(mask(:)),label_prior_neg(mask(:)));
     if config.debug
         loglik_vec(end+1) = loglik;
         ent_vec(end+1) = ent;
@@ -114,7 +120,7 @@ for i = 1:n
         imagesc(reshape(mask,y_sz,[]))
     end
     
-    experts{i}.score(end+1) = loglik - lambda*ent;
+    experts{i}.score(end+1) =  loglik - lambda*ent;
     score_temp(i) = sum(experts{i}.score(max(end+1-config.entropy_score_winsize,1):end));    
 end
 
